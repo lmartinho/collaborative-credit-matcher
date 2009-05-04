@@ -16,97 +16,55 @@ class MaxWeightedAverageConstraint(constraint.Constraint):
     [[('a', 3), ('b', 1), ('c', 3), ('d', 2)], ...]
     """#"""
 
-    def __init__(self, max_weighted_average, multipliers=None):
+    def __init__(self, max_weighted_average):
         """
         @param max_weighted_average: Value to be considered as the maximum weighted average
         @type max_weighted_average: number
-        @param multipliers: If given, variable values will be multiplied by
-                            the given factors before being summed to be checked
-        @type  multipliers: sequence of numbers
         """
         self._max_weighted_average = max_weighted_average
-        self._multipliers = multipliers
 
     def preProcess(self, variables, domains, constraints, vconstraints):
         # call super
-        Constraint.preProcess(self, variables, domains,
+        constraint.Constraint.preProcess(self, variables, domains,
                               constraints, vconstraints)
         
-        # get the multipliers from the instance variable
-        multipliers = self._multipliers
-        
-        # get the max weighted average value of the constraint
-        max_weighted_average = self._max_weighted_average
-
-        # if there are multiplies
-        # @todo: review this
-        if multipliers:
-            for variable, multiplier in zip(variables, multipliers):
-                domain = domains[variable]
-                for value in domain[:]:
-                    if value * multiplier > maxsum:
-                        domain.remove(value)
-        # with no multipliers
-        else:
-            # take the flat variable list and group it to ease linear combination
-            # [var1, var2, ..., varN-1, varN, varN+1] -> [(var1, var2), ..., (varN-1, varN), (varN+1, 1)]
-            grouped_variables = grouper(2, variables, 1)
-            for weight_variable, value_variable in grouped_variables:
-                domain = domains[variable]
-                for value in domain[:]:
-                    if (weight_variable * value_variable) / weight_variable > max_weighted_average:
-                        domain.remove(value)
+        # not doing any additional pruning
+        return
 
     def __call__(self, variables, domains, assignments, forwardcheck=False):
-        # get the multipliers from the instance variable
-        multipliers = self._multipliers
-        
         # get the max weighted average value of the constraint
         max_weighted_average = self._max_weighted_average
 
-        # @todo: this must be something more, running weighted average for instance
-        sum = 0
-
-        if multipliers:
-            for variable, multiplier in zip(variables, multipliers):
-                if variable in assignments:
-                    sum += assignments[variable] * multiplier
-            if type(sum) is float:
-                sum = round(sum, 10)
-            if sum > maxsum:
-                return False
-            if forwardcheck:
-                for variable, multiplier in zip(variables, multipliers):
-                    if variable not in assignments:
-                        domain = domains[variable]
-                        for value in domain[:]:
-                            if sum + value * multiplier > maxsum:
-                                domain.hideValue(value)
-                        if not domain:
-                            return False
-        else:
-            for variable in variables:
-                if variable in assignments:
-                    sum += assignments[variable]
-            if type(sum) is float:
-                sum = round(sum, 10)
-            if sum > maxsum:
-                return False
-            if forwardcheck:
-                for variable in variables:
-                    if variable not in assignments:
-                        domain = domains[variable]
-                        for value in domain[:]:
-                            if sum + value > maxsum:
-                                domain.hideValue(value)
-                        if not domain:
-                            return False
+        # the running average
+        cummulative_weighted_average = 0
+        # the running weight sum
+        cummulative_weight_sum = 0
+        
+        grouped_variables = grouper(2, variables, 1)
+    
+        for weight_variable, value_variable in grouped_variables:
+            if weight_variable in assignments and value_variable in assignments:
+                weight = assignments[weight_variable]
+                value = assignments[value_variable]
+                # update the running average
+                if cummulative_weight_sum + weight > 0:
+                    cummulative_weighted_average = (cummulative_weight_sum * cummulative_weighted_average + weight * value) / (cummulative_weight_sum + weight)
+                else:
+                    cummulative_weighted_average = 0
+                cummulative_weight_sum += weight
+        if cummulative_weighted_average > max_weighted_average:
+            return False
         return True
 
 def grouper(n, iterable, fillvalue=None):
-    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    """
+    grouper(3, 'ABCDEFG', 'x') yields ABC DEF Gxx
+    """
     args = [iter(iterable)] * n
     return itertools.izip_longest(fillvalue=fillvalue, *args)
+
+def flatten(l):
+    list(itertools.chain(*l))
 
 def weighted_average(*args):  
     # group the list into 2 value tuples
@@ -120,7 +78,7 @@ def weighted_average(*args):
         total_weight += weight
     
     # compute the weighted average
-    weighted_average =  weighted_total / total_weight
+    weighted_average = weighted_total / total_weight
     
     return weighted_average
 
@@ -179,8 +137,9 @@ def solve():
         # @fixme: only the average rate should be above the min, not each individual rate
         # still it is a start
         for lender_rate in lender_rates:
+            pass
             # @todo: create a new MaxWeightedAverageConstraint that receives a list of weights and a list of values
-            problem.addConstraint(lambda rate: rate >= lender_min_rates[i], [lender_rate])
+#            problem.addConstraint(lambda rate: rate >= lender_min_rates[i], [lender_rate])
 #
 #        lender_variable_pairs = zip(lender_amounts, lender_rates)
 #        problem.addConstraint(constraint.FunctionConstraint(weighted_average), lender_variable_pairs)
@@ -198,8 +157,11 @@ def solve():
         print "Borrower %i: %s" % (j, borrower_rates)
         # @fixme: only the average rate should be below the max, not each individual rate
         # still it is a start
-        for borrower_rate in borrower_rates: 
-            problem.addConstraint(lambda rate: rate <= borrower_max_rates[i], [borrower_rate])
+        for borrower_rate in borrower_rates:
+            pass 
+#            problem.addConstraint(lambda rate: rate <= borrower_max_rates[i], [borrower_rate])
+        borrower_amounts_rates = flatten(zip(borrower_amounts, borrower_rates))
+        problem.addConstraint(MaxWeightedAverageConstraint(borrower_max_rates[i]), borrower_amounts_rates)
 
     # the solution generator is the solution iterator method of the constraint problem object
     best_score = None
