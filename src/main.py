@@ -14,17 +14,58 @@ def f(solution):
     return result
 
 def print_solution(solution):
-    for variable, value in solution.items():
-	if (variable.find("rate") > -1):
-		print "%s: %-3.2f %%" % (variable, value / 100.0) 
-	elif(variable.find("amount") > -1):
-		print "%s: %-5.2f EUR" % (variable, value)
+    solution_list = build_solution_list(solution)
+    print_solution_list(solution_list)
 
+def build_solution_list(solution):
+    solutions = []
+    lenders = 3
+    borrowers = 3
+    for i in range(lenders):
+        solutions.append([])
+        for j in range(borrowers):
+            rate = solution["rate_%d_%d" % (i,j)]
+            amount = solution["amount_%d_%d" % (i,j)]
+            solution_tuple = (amount, rate)
+            solutions[i].append(solution_tuple)
+    
+    return solutions
+
+def print_match(match):
+    amount, rate = match
+
+    print "(%7.2fEUR" % amount,
+    print("@"),
+    print "%5.2f%%)" % (rate / 10000.0),
+
+def print_solution_list(solution_list):
+    lenders = len(solution_list)
+    borrowers = len(solution_list[0])
+    print "              ",
+    for i in range(borrowers):
+        print "B%d                      " % i,
+    print ""
+    for i in range(borrowers):
+        print "--------------------------",
+    print ""
+
+    i = 0
+    for lender_solutions in solution_list:
+        print "L%d | " % i, 
+        for borrower_solution in lender_solutions:
+            print_match(borrower_solution),
+            print "  ",
+        print ""
+        i += 1
+    
+    print "   -------------------------------------------------------------------"
+        
 def solve():
     # declare constraints
     # lender_min_rates[i]: the minimum rate at which lender i will lend money
     lender_min_rates = [100, 200, 300]
     # borrower_max_rate[j]: the maximum rate at which borrower j will borrow money
+    # 100% = 10000
     borrower_max_rates = [800, 900, 1000]
 
     # lender_max_amount[i]: the maximum amount lender i is willing to invest
@@ -94,15 +135,18 @@ def solve():
 #   best_score = f(best_solution)
     for solution in problem.getSolutionIter():
         score = f(solution)
-        if(score > best_score):
+        if(score != best_score):
             print "New current best found"
-	    print_solution(solution)
+            print_solution(solution)
             print "Score: " + str(score)
             best_score = score
             best_solution = solution
 
     return (best_solution, best_score)
-
+      
 # run the solver
-solve()
+solutions = []
+solution = solve()
+solution_list = build_solution_list(solution)
 
+print_solution_list(solution_list)
