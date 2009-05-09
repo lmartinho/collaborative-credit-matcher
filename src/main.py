@@ -6,12 +6,80 @@ import matcher_utils
 
 MAX_RATE = 10000
 
-# Objective function taken as the sum of values in the solution (the higher the rates, the better the solution)
 def f(solution):
-    result = 0
-    for variable, value in solution.items():
-        result += value
-    return result
+    results = create_results(solution)
+    return utility_function(parameters, results)
+
+# @todo: write a factory method that create dictionaries containing a structured form of the retrieved solution
+def create_results(solution)
+    pass
+
+def utility_function(parameters, results):
+    # utility function must take into account several factors
+    
+    # calculate the overall member rate margin    
+    lender_rates_margin = calculate_lender_rates_margin(parameters, results)
+    borrower_rates_margin = calculate_borrower_rates_margin(parameters, results)
+    
+    member_rates_margin =  lender_rates_margin + borrower_rates_margin
+
+    # calculate the overall member amount margin
+    lender_amounts_margin = calculate_lender_amounts_margin(parameters, results)
+    borrower_amounts_margin = calculate_borrower_amounts_margin(parameters, results)
+
+    member_amounts_margin = lender_amounts_margin + borrower_amounts_margin 
+
+    # calculate the total capital amount traded
+    total_traded_amount = calculate_total_traded_amount(results)
+    
+    # calculate the tightness/fairness of the results
+    tightness = calculate_tightness(parameters, results)
+
+    utility = member_rates_margin + member_amounts_margin + total_traded_amount + tightness     
+    
+    return utility_function
+
+def calculate_lender_rates_margin(parameters, result):
+    lender_rate_margin = 0
+    
+    lender_parameters = parameters["lender"]
+    lender_results = results["lender"]
+    lenders = lender_parameters.keys()
+
+    for lender in lenders:
+        effective_rate = lender_results[lender]["rate"]
+        minimum_rate = lender_parameters[lender]["minimum_rate"]
+
+        lender_rate_margin += effective_rate - minimum_rate
+
+    return lender_rate_margin
+
+def calculate_borrower_rates_margin(parameters, result):
+    borrower_rate_margin = 0
+    
+    borrower_parameters = parameters["borrower"]
+    borrower_results = results["borrower"]
+    borrowers = borrower_parameters.keys()
+
+    for borrower in borrowers:
+        effective_rate = result[borrower]["rate"]
+        maximum_rate = parameters[borrower]["maximum_rate"]
+
+        borrower_rate_margin += effective_rate - maximum_rate
+
+    return borrower_rate_margin
+
+def calculate_lender_amounts_margin(parameters, result):
+    return 0
+
+def calculate_borrower_amounts_margin(parameters, result):
+    return 0
+
+def calculate_total_traded_amount(parameters, result):
+    return 0
+
+def calculate_tightness(result):
+    return 0
 
 def print_solution(solution):
     solution_list = build_solution_list(solution)
@@ -59,25 +127,68 @@ def print_solution_list(solution_list):
         i += 1
     
     print "   -------------------------------------------------------------------"
-        
+
+def get_lender_minimum_rates(parameters):
+    lender_parameters = parameters["lenders"]
+    lender_minimum_rates = [lender["minimum_rate"] for lender in lender_parameters]
+
+    return lender_minimum_rates 
+
+def get_borrower_maximum_rates(parameters):
+    borrower_parameters = parameters["borrowers"]
+    borrower_maximum_rates = [borrower["maximum_rate"] for borrower in borrower_parameters]
+
+    return borrower_maximum_rates 
+
+def get_lender_maximum_amounts(parameters):
+    lender_parameters = parameters["lenders"]
+    lender_maximum_amounts = [lender["maximum_amount"] for lender in lender_parameters]
+
+    return lender_maximum_amounts 
+
+def get_lender_minimum_amounts(parameters):
+    lender_parameters = parameters["lenders"]
+    lender_minimum_amounts = [lender["minimum_amount"] for lender in lender_parameters]
+
+    return lender_minimum_amounts 
+
+def get_borrower_maximum_amounts(parameters):
+    borrower_parameters = parameters["borrowers"]
+    borrower_maximum_amounts = [borrower["maximum_amount"] for borrower in borrower_parameters]
+
+    return borrower_maximum_amounts 
+
+def get_borrower_minimum_amounts(parameters):
+    borrower_parameters = parameters["borrowers"]
+    borrower_minimum_amounts = [borrower["minimum_amount"] for borrower in borrower_parameters]
+
+    return borrower_minimum_amounts 
+
 def solve():
-    # declare constraints
+    parameters = {"lenders" : [{"minimum_rate" : 0.01, "minimum_amount" : 10, "maximum_amount" : 100},
+                               {"minimum_rate" : 0.02, "minimum_amount" : 20, "maximum_amount" : 200},
+                               {"minimum_rate" : 0.03, "minimum_amount" : 30, "maximum_amount" : 300}],
+                  "borrowers" : [{"maximum_rate" : 0.08, "minimum_amount" : 10, "maximum_amount" : 100},
+                                 {"maximum_rate" : 0.09, "minimum_amount" : 20, "maximum_amount" : 200},
+                                 {"maximum_rate" : 0.1, "minimum_amount" : 30, "maximum_amount" : 300} ]}
+
+    # @todo: convert rate 100% = 10000
     # lender_min_rates[i]: the minimum rate at which lender i will lend money
-    lender_min_rates = [100, 200, 300]
+    lender_min_rates = get_lender_minimum_rates(parameters)
     # borrower_max_rate[j]: the maximum rate at which borrower j will borrow money
-    # 100% = 10000
-    borrower_max_rates = [800, 900, 1000]
+    borrower_max_rates = get_borrower_maximum_rates(parameters)
 
     # lender_max_amount[i]: the maximum amount lender i is willing to invest
-    lender_max_amounts = [100, 200, 300]
+    lender_max_amounts = get_lender_maximum_amounts(parameters)
     # lender_min_amount[i]: the minimum amount lender i is willing to invest
-    lender_min_amounts = [10, 20, 30]
-    # borrower_max_amount[j]: the maximum amount borrower j wants to receive 
-    borrower_max_amounts = [100, 200, 300]
-    # borrower_min_amount[j]: the minimum amount borrower j wants to receive, if he gets a loan
-    borrower_min_amounts = [10, 20, 30]
+    lender_min_amounts = get_lender_minimum_amounts(parameters)
 
-    # TODO: add diversification parameters
+    # borrower_max_amount[j]: the maximum amount borrower j wants to receive 
+    borrower_max_amounts = get_borrower_maximum_amounts(parameters)
+    # borrower_min_amount[j]: the minimum amount borrower j wants to receive, if he gets a loan
+    borrower_min_amounts = get_borrower_minimum_amounts(parameters)
+
+    # @TODO: add diversification parameters
 
     #problem = constraint.Problem(BacktrackingSolver())
     #problem = constraint.Problem(RecursiveBacktrackingSolver())
