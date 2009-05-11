@@ -6,13 +6,65 @@ import matcher_utils
 
 MAX_RATE = 10000
 
-def f(solution):
-    results = create_results(solution)
+def f(parameters, solution):
+    results = calculate_aggregate_results(parameters, solution)
     return utility_function(parameters, results)
 
-# @todo: write a factory method that create dictionaries containing a structured form of the retrieved solution
-def create_results(solution)
-    pass
+def calculate_aggregate_results(parameters, solution):
+    results = {}
+
+    lenders = []
+    n_lenders = len(parameters["lenders"])
+    n_borrowers = len(parameters["borrowers"])
+
+    for i in range(n_lenders):
+        lender_amount = 0
+        lender_rate = 0
+        lender_matches = []
+
+        # calculate the aggregate rate for the lender
+        # calculate the total amount for the lender
+        for j in range(n_borrowers):
+            amount = solution["amount_%d_%d" % (i,j)]
+            rate = solution["rate_%d_%d" % (i,j)]
+            rate = rate / MAX_RATE
+            lender_amount += amount
+            solution_tuple = (amount, rate)
+            lender_matches.append(solution_tuple)
+
+        lender_rate = matcher_utils.weighted_average(lender_matches)
+
+        lender = {"amount": lender_amount, "rate": lender_rate}
+
+        lenders.append(lender)
+
+    results["lenders"] = lenders
+
+    borrowers = []
+    for j in range(n_borrowers):
+        borrower_amount = 0
+        borrower_rate = 0
+        borrower_matches = []
+
+        # calculate the aggregate rate for the borrower
+        # calculate the total amount for the borrower
+        for i in range(n_lenders):
+            amount = solution["amount_%d_%d" % (i,j)]
+            rate = solution["rate_%d_%d" % (i,j)]
+            rate = rate / MAX_RATE
+            borrower_amount += amount
+            solution_tuple = (amount, rate)
+            borrower_matches.append(solution_tuple)
+
+        borrower_rate = matcher_utils.weighted_average(borrower_matches)
+
+        borrower = {"amount": borrower_amount, "rate": borrower_rate}
+
+        borrowers.append(borrower)
+
+    results["borrowers"] = borrowers
+
+    return results
 
 def utility_function(parameters, results):
     # utility function must take into account several factors
@@ -30,23 +82,23 @@ def utility_function(parameters, results):
     member_amounts_margin = lender_amounts_margin + borrower_amounts_margin 
 
     # calculate the total capital amount traded
-    total_traded_amount = calculate_total_traded_amount(results)
+    total_traded_amount = calculate_total_traded_amount(parameters, results)
     
     # calculate the tightness/fairness of the results
     tightness = calculate_tightness(parameters, results)
 
     utility = member_rates_margin + member_amounts_margin + total_traded_amount + tightness     
     
-    return utility_function
+    return utility
 
-def calculate_lender_rates_margin(parameters, result):
+def calculate_lender_rates_margin(parameters, results):
     lender_rate_margin = 0
     
-    lender_parameters = parameters["lender"]
-    lender_results = results["lender"]
-    lenders = lender_parameters.keys()
+    lender_parameters = parameters["lenders"]
+    lender_results = results["lenders"]
+    lenders = len(lender_parameters)
 
-    for lender in lenders:
+    for lender in range(lenders):
         effective_rate = lender_results[lender]["rate"]
         minimum_rate = lender_parameters[lender]["minimum_rate"]
 
@@ -54,31 +106,31 @@ def calculate_lender_rates_margin(parameters, result):
 
     return lender_rate_margin
 
-def calculate_borrower_rates_margin(parameters, result):
+def calculate_borrower_rates_margin(parameters, results):
     borrower_rate_margin = 0
     
-    borrower_parameters = parameters["borrower"]
-    borrower_results = results["borrower"]
-    borrowers = borrower_parameters.keys()
+    borrower_parameters = parameters["borrowers"]
+    borrower_results = results["borrowers"]
+    borrowers = len(borrower_parameters)
 
-    for borrower in borrowers:
-        effective_rate = result[borrower]["rate"]
-        maximum_rate = parameters[borrower]["maximum_rate"]
+    for borrower in range(borrowers):
+        effective_rate = borrower_results[borrower]["rate"]
+        maximum_rate = borrower_parameters[borrower]["maximum_rate"]
 
         borrower_rate_margin += effective_rate - maximum_rate
 
     return borrower_rate_margin
 
-def calculate_lender_amounts_margin(parameters, result):
+def calculate_lender_amounts_margin(parameters, results):
     return 0
 
-def calculate_borrower_amounts_margin(parameters, result):
+def calculate_borrower_amounts_margin(parameters, results):
     return 0
 
-def calculate_total_traded_amount(parameters, result):
+def calculate_total_traded_amount(parameters, results):
     return 0
 
-def calculate_tightness(result):
+def calculate_tightness(parameters, results):
     return 0
 
 def print_solution(solution):
@@ -93,6 +145,7 @@ def build_solution_list(solution):
         solutions.append([])
         for j in range(borrowers):
             rate = solution["rate_%d_%d" % (i,j)]
+            rate = float(rate) / MAX_RATE * 100
             amount = solution["amount_%d_%d" % (i,j)]
             solution_tuple = (amount, rate)
             solutions[i].append(solution_tuple)
@@ -104,7 +157,7 @@ def print_match(match):
 
     print "(%7.2fEUR" % amount,
     print("@"),
-    print "%5.2f%%)" % (rate / 10000.0),
+    print "%5.2f%%)" % rate,
 
 def print_solution_list(solution_list):
     lenders = len(solution_list)
@@ -165,14 +218,13 @@ def get_borrower_minimum_amounts(parameters):
     return borrower_minimum_amounts 
 
 def solve():
-    parameters = {"lenders" : [{"minimum_rate" : 0.01, "minimum_amount" : 10, "maximum_amount" : 100},
-                               {"minimum_rate" : 0.02, "minimum_amount" : 20, "maximum_amount" : 200},
+    parameters = {"lenders" : [{"minimum_rate" : 0.05, "minimum_amount" : 10, "maximum_amount" : 100},
+                               {"minimum_rate" : 0.04, "minimum_amount" : 20, "maximum_amount" : 200},
                                {"minimum_rate" : 0.03, "minimum_amount" : 30, "maximum_amount" : 300}],
-                  "borrowers" : [{"maximum_rate" : 0.08, "minimum_amount" : 10, "maximum_amount" : 100},
-                                 {"maximum_rate" : 0.09, "minimum_amount" : 20, "maximum_amount" : 200},
-                                 {"maximum_rate" : 0.1, "minimum_amount" : 30, "maximum_amount" : 300} ]}
+                  "borrowers" : [{"maximum_rate" : 0.15, "minimum_amount" : 10, "maximum_amount" : 100},
+                                 {"maximum_rate" : 0.10, "minimum_amount" : 20, "maximum_amount" : 200},
+                                 {"maximum_rate" : 0.05, "minimum_amount" : 30, "maximum_amount" : 300} ]}
 
-    # @todo: convert rate 100% = 10000
     # lender_min_rates[i]: the minimum rate at which lender i will lend money
     lender_min_rates = get_lender_minimum_rates(parameters)
     # borrower_max_rate[j]: the maximum rate at which borrower j will borrow money
@@ -222,9 +274,11 @@ def solve():
         print "Lender %i: %s" % (i, lender_rates)
 
         lender_amounts_rates = matcher_utils.flatten(zip(lender_amounts, lender_rates))
-	print lender_amounts_rates
-	print lender_min_rates[i]
-        problem.addConstraint(matcher_constraint.MinWeightedAverageOrDefaultConstraint(lender_min_rates[i], 0), lender_amounts_rates)
+        # use the rate in an integer format (multiply by the intended 10^precision value)
+        # due to the finite domain solver
+        lender_min_rate = round(lender_min_rates[i] * MAX_RATE)
+        print lender_min_rate
+        problem.addConstraint(matcher_constraint.MinWeightedAverageOrDefaultConstraint(lender_min_rate, 0), lender_amounts_rates)
 
     for j in range(number_borrowers):
         borrower_amounts = ["amount_" + str(i) + "_" + str(j) for i in range(number_lenders)]
@@ -236,8 +290,13 @@ def solve():
         print "Borrower %i: %s" % (j, borrower_rates)
 
         borrower_amounts_rates = matcher_utils.flatten(zip(borrower_amounts, borrower_rates))
-        problem.addConstraint(matcher_constraint.MaxWeightedAverageOrDefaultConstraint(borrower_max_rates[j], 0), borrower_amounts_rates)
+        borrower_max_rate = round(borrower_max_rates[j] * MAX_RATE)
+        print borrower_max_rate
+        # use the rate in an integer format (multiply by the intended 10^precision value)
+        # due to the finite domain solver
+        problem.addConstraint(matcher_constraint.MaxWeightedAverageOrDefaultConstraint(borrower_max_rate, 0), borrower_amounts_rates)
 
+    print "\nSearching for solutions"
     # the solution generator is the solution iterator method of the constraint problem object
     best_score = None
     best_solution = None
@@ -245,8 +304,8 @@ def solve():
 #   best_solution = problem.getSolution()
 #   best_score = f(best_solution)
     for solution in problem.getSolutionIter():
-        score = f(solution)
-        if(score != best_score):
+        score = f(parameters, solution)
+        if(score > best_score):
             print "New current best found"
             print_solution(solution)
             print "Score: " + str(score)
@@ -256,8 +315,5 @@ def solve():
     return (best_solution, best_score)
       
 # run the solver
-solutions = []
 solution = solve()
-solution_list = build_solution_list(solution)
 
-print_solution_list(solution_list)
