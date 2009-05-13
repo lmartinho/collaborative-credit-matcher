@@ -18,8 +18,8 @@ def weighted_average_args(*args):
 
     return weighted_average(grouped_arguments_iterator)
 
-def weighted_average(iterable):  
-    
+def weighted_average(iterable):
+
     weighted_total = 0
     total_weight = 0
     for weight, value in iterable:
@@ -32,21 +32,21 @@ def weighted_average(iterable):
 
     # compute the weighted average
     weighted_average = weighted_total / total_weight
-    
+
     return weighted_average
 
 def print_solution(parameters, solution):
-    solution_list = build_solution_list(parameters, solution)
-    print_solution_list(solution_list)
+    solutions_map = build_solutions_map(parameters, solution)
+    print_solutions_map(parameters, solutions_map)
 
-def build_solution_list(parameters, solution):
-    solutions = []
+def build_solutions_map(parameters, solution):
+    solutions = {}
 
     lenders = parameters["lenders"]
     borrowers = parameters["borrowers"]
 
     for lender_id in lenders:
-        lender_match_list = []
+        lender_solutions = {}
 
         for borrower_id in borrowers:
             rate = solution["rate_%s_%s" % (lender_id, borrower_id)]
@@ -56,38 +56,58 @@ def build_solution_list(parameters, solution):
 
             solution_tuple = (amount, rate)
 
-            lender_match_list.append(solution_tuple)
-        
-        # append the match list for the current borrower to the overall match list
-        solutions.append(lender_match_list)
-    
+            lender_solutions[borrower_id] = solution_tuple
+
+        # append the match list for the current lender to the overall match list
+        solutions[lender_id] = lender_solutions
+
     return solutions
-
-def print_solution_list(solution_list):
-    lenders = len(solution_list)
-    borrowers = len(solution_list[0])
-    print "              ",
-    for i in range(borrowers):
-        print "B%d                      " % i,
-    print ""
-    for i in range(borrowers):
-        print "--------------------------",
-    print ""
-
-    i = 0
-    for lender_solutions in solution_list:
-        print "L%d | " % i,
-        for borrower_solution in lender_solutions:
-            print_match(borrower_solution),
-            print "  ",
-        print ""
-        i += 1
-    
-    print "   -------------------------------------------------------------------"
 
 def print_match(match):
     amount, rate = match
 
-    print "(%7.2fEUR" % amount,
-    print("@"),
-    print "%5.2f%%)" % rate,
+    print "(%6.2f@%4.2f%%)" % (amount, rate),
+
+def print_utility(utility):
+    print "Utility:"
+    print "borrower_rates_margin: ", utility["borrower_rates_margin"]
+    print "lender_rates_margin: ", utility["lender_rates_margin"]
+    print "member_rates_margin", utility["member_rates_margin"]
+
+    print "total_offered_amount", utility["total_offered_amount"]
+    print "total_requested_amount", utility["total_requested_amount"]
+    print "total_matched_amount", utility["total_matched_amount"]
+
+    print "fulfillment_rate", utility["fulfillment_rate"]
+
+    print "tightness", utility["tightness"]
+
+    print "score: ", utility["score"]
+
+def print_solutions_map(parameters, solutions_map):
+    lenders = parameters["lenders"]
+    borrowers = parameters["borrowers"]
+
+    # print the header
+    print "                ",
+    for borrower_id, borrower in borrowers.items():
+        amount = borrower["maximum_amount"]
+        rate = borrower["maximum_rate"] * 100
+        print "B%s:%6.2f@%4.2f%%  " % (borrower_id, amount, rate),
+
+    print
+    print ""
+
+    # print the body
+    i = 0
+    for lender_id, lender_solutions in solutions_map.items():
+        lender = lenders[lender_id]
+        amount = lender["maximum_amount"]
+        rate = lender["minimum_rate"] * 100
+        print "L%s:%6.2f@%4.2f%% | " % (lender_id, amount, rate),
+        for borrower_solution in lender_solutions.values():
+            print_match(borrower_solution),
+            print "  ",
+        print ""
+        i += 1
+    print "   -------------------------------------------------------------------"

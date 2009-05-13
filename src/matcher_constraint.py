@@ -2,9 +2,12 @@ import constraint
 
 import matcher_utils
 
+class NoSolutionAvailableException(Exception):
+    pass
+
 class MaxWeightedAverageConstraint(constraint.Constraint):
     """
-    Constraint enforcing that values of given variables, linearly combined with 
+    Constraint enforcing that values of given variables, linearly combined with
     a second set of variables sum up below a given maximum value.
 
     Example:
@@ -27,7 +30,7 @@ class MaxWeightedAverageConstraint(constraint.Constraint):
         # call super
         constraint.Constraint.preProcess(self, variables, domains,
                               constraints, vconstraints)
-        
+
         # not doing any additional pruning
         return
 
@@ -39,9 +42,9 @@ class MaxWeightedAverageConstraint(constraint.Constraint):
         cummulative_weighted_average = 0
         # the running weight sum
         cummulative_weight_sum = 0
-        
+
         grouped_variables = matcher_utils.grouper(2, variables, 1)
-    
+
         for weight_variable, value_variable in grouped_variables:
             if weight_variable in assignments and value_variable in assignments:
                 weight = assignments[weight_variable]
@@ -59,7 +62,7 @@ class MaxWeightedAverageConstraint(constraint.Constraint):
 
 class MaxWeightedAverageOrDefaultConstraint(constraint.Constraint):
     """
-    Constraint enforcing that values of given variables, linearly combined with 
+    Constraint enforcing that values of given variables, linearly combined with
     a second set of variables sum up below a given maximum value.
 
     Example:
@@ -83,7 +86,7 @@ class MaxWeightedAverageOrDefaultConstraint(constraint.Constraint):
         # call super
         constraint.Constraint.preProcess(self, variables, domains,
                               constraints, vconstraints)
-        
+
         # not doing any additional pruning
         return
 
@@ -96,9 +99,9 @@ class MaxWeightedAverageOrDefaultConstraint(constraint.Constraint):
         cummulative_weighted_average = 0
         # the running weight sum
         cummulative_weight_sum = 0
-        
+
         grouped_variables = matcher_utils.grouper(2, variables, 1)
-    
+
         for weight_variable, value_variable in grouped_variables:
             if weight_variable in assignments and value_variable in assignments:
                 weight = assignments[weight_variable]
@@ -116,7 +119,7 @@ class MaxWeightedAverageOrDefaultConstraint(constraint.Constraint):
 
 class MinWeightedAverageOrDefaultConstraint(constraint.Constraint):
     """
-    Constraint enforcing that values of given variables, linearly combined with 
+    Constraint enforcing that values of given variables, linearly combined with
     a second set of variables sum up above a given minimum value.
 
     Example:
@@ -134,28 +137,28 @@ class MinWeightedAverageOrDefaultConstraint(constraint.Constraint):
         @type min_weighted_average: number
         """
         self._min_weighted_average = min_weighted_average
-	self._default_value = default_value
+        self._default_value = default_value
 
     def preProcess(self, variables, domains, constraints, vconstraints):
         # call super
         constraint.Constraint.preProcess(self, variables, domains,
                               constraints, vconstraints)
-        
+
         # not doing any additional pruning
         return
 
     def __call__(self, variables, domains, assignments, forwardcheck=False):
         # get the min weighted average value of the constraint
         min_weighted_average = self._min_weighted_average
-	default_value = self._default_value
+        default_value = self._default_value
 
         # the running average
         cummulative_weighted_average = 0
         # the running weight sum
         cummulative_weight_sum = 0
-        
+
         grouped_variables = matcher_utils.grouper(2, variables, 1)
-    
+
         for weight_variable, value_variable in grouped_variables:
             if weight_variable in assignments and value_variable in assignments:
                 weight = assignments[weight_variable]
@@ -169,4 +172,3 @@ class MinWeightedAverageOrDefaultConstraint(constraint.Constraint):
         if cummulative_weighted_average < min_weighted_average and cummulative_weighted_average != default_value:
             return False
         return True
-
