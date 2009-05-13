@@ -10,15 +10,15 @@ def solve(parameters):
     problem = constraint.Problem(constraint.BacktrackingSolver())
 
     print "Adding variables: "
-    addVariables(problem, parameters)
+    add_variables(problem, parameters)
     
     print "Adding amount and rate constraints: "
-    addConstraints(problem, parameters)
+    add_constraints(problem, parameters)
 
     print "Searching for solutions"
     return optimize(problem, parameters)    
 
-def addVariables(problem, parameters):
+def add_variables(problem, parameters):
     lenders = parameters["lenders"]
     borrowers = parameters["borrowers"]
 
@@ -38,7 +38,7 @@ def addVariables(problem, parameters):
             # add the amount match variable for the lender, borrower pair
             problem.addVariable(amount_variable, lender_amount_range)
 
-def addConstraints(problem, parameters):
+def add_constraints(problem, parameters):
     lenders = parameters["lenders"]
     borrowers = parameters["borrowers"]
 
@@ -70,7 +70,7 @@ def addConstraints(problem, parameters):
     # add borrower constraints
     for borrower_id, borrower in borrowers.items():
         # build a list of all the amount variables for the current borrower
-        borrower_amounts = ["amount_%s_%s" % (lender_id, borrower_id) for borrower_id in borrowers]
+        borrower_amounts = ["amount_%s_%s" % (lender_id, borrower_id) for lender_id in lenders]
 
         # constraint the amount variables' sum to the lender's maximum and minimum amounts
         borrower_maximum_amount_constraint = constraint.MaxSumConstraint(borrower["maximum_amount"])
@@ -87,7 +87,7 @@ def addConstraints(problem, parameters):
 
         # constraint the average rate (weighed by the amount) to the borrower's maximum offered rate
         borrower_maximum_rate = round(borrower["maximum_rate"] * MAX_RATE)
-        borrower_maximum_rate_constraint = matcher_constraint.MaxWeightedAverageOrDefaultConstraint(borrower_maximum_rate, 0)
+        borrower_maximum_rate_constraint = matcher_constraint.MaxWeightedAverageConstraint(borrower_maximum_rate)
 
         # apply the constraint to the problem
         problem.addConstraint(borrower_maximum_rate_constraint, borrower_amounts_rates)
@@ -202,20 +202,21 @@ def utility_function(parameters, results):
     
     member_rates_margin = lender_rates_margin + borrower_rates_margin
 
-    # calculate the overall member amount margin
-    lender_amounts_margin = calculate_lender_amounts_margin(parameters, results)
-    borrower_amounts_margin = calculate_borrower_amounts_margin(parameters, results)
+    # calculate the total amount offered by lenders
+    total_offered_amount = calculate_total_offered_amount(parameters, results)
+    # calculate the total amount requested by borrowers
+    total_requested_amount = calculate_total_requested_amount(parameters, results)
+    # calculate the total capital amount successfully matched
+    total_matched_amount = calculate_total_matched_amount(parameters, results)
 
-    member_amounts_margin = lender_amounts_margin + borrower_amounts_margin 
-
-    # calculate the total capital amount traded
-    total_traded_amount = calculate_total_traded_amount(parameters, results)
+    # calculate the part of the overall amount requests and offered that were successfully matched
+    fulfillment_rate = calculate_fulfillment_rate(total_offered_amount, total_requested_amount, total_matched_amount) 
     
     # calculate the tightness/fairness of the results
     tightness = calculate_tightness(parameters, results)
 
     # compute the composite utility of the specified solution results
-    utility = member_rates_margin + member_amounts_margin + total_traded_amount + tightness     
+    utility = member_rates_margin + fulfillment_rate     
 
     return utility
 
@@ -252,17 +253,41 @@ def calculate_borrower_rates_margin(parameters, results):
 
     return borrower_rate_margin
 
-def calculate_lender_amounts_margin(parameters, results):
-    return 0
+def calculate_total_offered_amount(parameters, results):
+    lender_parameters = parameters["lenders"]
 
-def calculate_borrower_amounts_margin(parameters, results):
-    return 0
+    total_offered_amount = 0
+    for lender_id, lender_parameter in lender_parameters.items():
+        total_offered_amount += lender_parameter["maximum_amount"]
+        
+    return total_offered_amount
 
-def calculate_total_traded_amount(parameters, results):
-    return 0
+def calculate_total_requested_amount(parameters, results):
+    borrower_parameters = parameters["borrowers"]
+
+    total_requested_amount = 0
+    for borrower_id, borrower_parameter in borrower_parameters.items():
+        total_requested_amount += borrower_parameter["maximum_amount"]
+        
+    return total_requested_amount
+
+def calculate_total_matched_amount(parameters, results):
+    borrower_results = results["borrowers"]
+
+    total_matched_amount = 0
+    for borrower_id, borrower_result in borrower_results.items():
+        total_matched_amount += borrower_result["amount"]
+        
+    return total_matched_amount 
+
+def calculate_fulfillment_rate(total_offered_amount, total_requested_amount, total_matched_amount):
+    """ Calculates the relevance of the matched amount in relation to the overall initial values. """
+    return total_matched_amount * 2 / (total_offered_amount + total_requested_amount)
 
 def calculate_tightness(parameters, results):
     return 0
+
+
 
 def run():
     """ The main entry point """
