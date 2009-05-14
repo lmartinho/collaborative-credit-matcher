@@ -23,16 +23,16 @@ def run():
 
     # create the generator
     solution_generator = matcher_lib.SolutionGenerator(parameters)
-    
+
     # create the evaluator, using the tight margin utility function
     solution_evaluator = matcher_lib.SolutionEvaluator(matcher_lib.SolutionEvaluator.tight_margin_utility)
-    
+
     # create the visualizer
     solution_visualizer = matcher_lib.SolutionVisualizer()
-    
+
     # create the coordinator, injecting the created objects
     coordinator = matcher_lib.Coordinator(solution_generator, solution_evaluator, solution_visualizer)
-    
+
     coordinator.set_budget(100)
 
     # run the coordinator
