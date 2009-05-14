@@ -118,6 +118,10 @@ class SolutionGenerator(object):
     def get_parameters(self):
         return self.parameters
 
+    # @todo: build a neighbour list from a solution
+    def get_neighbours(self, solution):
+        pass
+
 class SolutionEvaluator:
     """
     Evaluates a solution according to a selected utility function.
@@ -370,7 +374,28 @@ class SolutionGeneratorNotAvailableException(Exception):
 class SolutionEvaluatorNotAvailableException(Exception):
     pass
 
-class Coordinator(object):
+class HillClimbingOptimizer(object):
+    pass
+
+    def optimize(self):
+        pass
+        #Hill Climbing Algorithm
+        #   currentNode = startNode;
+        #   loop do
+        #      L = NEIGHBORS(currentNode);
+        #      nextEval = -INF;
+        #      nextNode = NULL;
+        #      for all x in L
+        #         if (EVAL(x) > nextEval)
+        #              nextNode = x;
+        #              nextEval = EVAL(x);
+        #      if nextEval <= EVAL(currentNode)
+        #         //Return current node since no better neighbors exist
+        #         return currentNode;
+        #      currentNode = nextNode;
+
+
+class Optimizer(object):
     """ Holds the search strategy used to optimize the problem, using the provided generator and evaluator. """
 
     def __init__(self, solution_generator, solution_evaluator, solution_visualizer=None):
@@ -396,7 +421,7 @@ class Coordinator(object):
     def set_solution_visualizer(self, solution_visualizer):
         self.solution_visualizer = solution_visualizer
 
-    def get_best_solution(self, time_budget=None):
+    def optimize(self, time_budget=None):
         print "Searching for solutions"
 
         if not self.solution_generator:

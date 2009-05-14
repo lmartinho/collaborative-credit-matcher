@@ -31,12 +31,12 @@ def run():
     solution_visualizer = matcher_lib.SolutionVisualizer()
 
     # create the coordinator, injecting the created objects
-    coordinator = matcher_lib.Coordinator(solution_generator, solution_evaluator, solution_visualizer)
+    optimizer = matcher_lib.Optimizer(solution_generator, solution_evaluator, solution_visualizer)
 
-    coordinator.set_budget(100)
+    optimizer.set_budget(100)
 
     # run the coordinator
-    solution, score = coordinator.get_best_solution()
+    solution, score = optimizer.optimize()
 
 # run the solver
 run()
