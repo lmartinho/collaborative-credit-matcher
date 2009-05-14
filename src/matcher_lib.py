@@ -1,6 +1,7 @@
 import constraint
 import itertools
 import statlib.stats
+import time
 
 import matcher_constraint
 import matcher_utils
@@ -108,6 +109,7 @@ class SolutionGenerator(object):
             self.problem.addConstraint(borrower_maximum_rate_constraint, borrower_amounts_rates)
 
     def get_solution(self):
+        # @todo: return the solution affected by MAX_RATE to standardize the generator API (always 1=100%)
         return self.solution_iterator.next()
     
     def get_solution_iterator(self):
@@ -378,6 +380,12 @@ class Coordinator(object):
 
         if solution_visualizer:
             self.set_solution_visualizer(solution_visualizer)
+        
+        # start with no time budget
+        self.time_budget = None
+    
+    def set_budget(self, time_budget):
+        self.time_budget = time_budget
     
     def set_solution_generator(self, solution_generator):
         self.solution_generator = solution_generator
@@ -388,7 +396,7 @@ class Coordinator(object):
     def set_solution_visualizer(self, solution_visualizer):
         self.solution_visualizer = solution_visualizer
 
-    def get_best_solution(self):
+    def get_best_solution(self, time_budget=None):
         print "Searching for solutions"
 
         if not self.solution_generator:
@@ -396,18 +404,25 @@ class Coordinator(object):
 
         if not self.solution_evaluator:
             raise SolutionEvaluatorNotAvailableException
+        
+        if time_budget:
+            current_time_budget = time_budget
+        elif self.time_budget:
+            current_time_budget = time_budget
+        else:
+            current_time_budget = None
 
-        return self.search()
+        return self.search(current_time_budget)
 
-    def search(self):
+    def search(self, time_budget=None):
         # the solution generator is the solution iterator method of the constraint problem object
         best_score = None
         best_solution = None
-    
-        import time
-        # the amount of time between solution display
-        buffer = 25
-        time_limit = 0
+
+        # calculate the time to stop looking for better solutions
+        end_time = None
+        if time_budget:
+            end_time = time.time() + time_budget
 
         # get the generator's parameters
         parameters = self.solution_generator.get_parameters()
@@ -424,13 +439,13 @@ class Coordinator(object):
                 best_utility = utility
                 best_solution = solution
     
-            if time.time() > time_limit and self.solution_visualizer:
-                time_limit = time.time() + buffer
-    
-                # show the current status
-                self.solution_visualizer.display_solution(parameters, best_solution)
-                self.solution_visualizer.display_utility(utility)
-    
+            # if there's a time budget, and it has been exceeded: stop
+            if end_time and time.time() >= end_time:
+                break
+            
+            # display the current status (subject to double buffering)
+            self.solution_visualizer.display(parameters, best_solution, utility)
+
         if not best_solution:
             raise matcher_constraint.NoSolutionAvailableException
     
@@ -438,11 +453,25 @@ class Coordinator(object):
 
 class SolutionVisualizer:
     
-    def __init__(self):
-        pass
-    
+    def __init__(self, refresh_display_buffer=10):
+        # initialize the double buffering control values
+        self.refresh_display_buffer = refresh_display_buffer        
+        self.next_display_time = None
+
     def display_solution(self, parameters, solution):
         matcher_utils.print_solution(parameters, solution)
 
     def display_utility(self, utility):
         matcher_utils.print_utility(utility)
+        
+    def display(self, parameters, solution, utility):
+
+        if time.time() > self.next_display_time:
+            # update the next buffer refresh time
+            self.next_display_time = time.time() + self.refresh_display_buffer
+
+            # show the current status
+            print
+            self.display_solution(parameters, solution)
+            self.display_utility(utility)
+            print
