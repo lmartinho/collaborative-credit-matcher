@@ -1,3 +1,5 @@
+import time
+
 class SolutionGeneratorNotAvailableException(Exception):
     pass
 
@@ -5,7 +7,12 @@ class SolutionEvaluatorNotAvailableException(Exception):
     pass
 
 class Optimizer(object):
-    def __init__(self, solution_generator, solution_evaluator, solution_visualizer=None):
+    """
+    Holds the search strategy used to optimize the problem,
+    using the provided generator and evaluator.
+    """
+
+    def __init__(self, solution_generator, solution_evaluator, solution_visualizer=None, time_budget=None):
         self.set_solution_generator(solution_generator)
 
         self.set_solution_evaluator(solution_evaluator)
@@ -14,9 +21,9 @@ class Optimizer(object):
             self.set_solution_visualizer(solution_visualizer)
 
         # start with no time budget
-        self.time_budget = None
+        self.set_time_budget(time_budget)
 
-    def set_budget(self, time_budget):
+    def set_time_budget(self, time_budget):
         self.time_budget = time_budget
 
     def set_solution_generator(self, solution_generator):
@@ -33,61 +40,19 @@ class Optimizer(object):
               "%s is an abstract class" % self.__class__.__name__
 
 class RandomSearchOptimizer(Optimizer):
-    """ Holds the search strategy used to optimize the problem, using the provided generator and evaluator. """
 
-    def __init__(self, solution_generator, solution_evaluator, solution_visualizer=None):
-        self.set_solution_generator(solution_generator)
+    def optimize(self):
+        # get the generator's parameters
+        parameters = self.solution_generator.get_parameters()
 
-        self.set_solution_evaluator(solution_evaluator)
-
-        if solution_visualizer:
-            self.set_solution_visualizer(solution_visualizer)
-
-        # start with no time budget
-        self.time_budget = None
-
-    def set_budget(self, time_budget):
-        self.time_budget = time_budget
-
-    def set_solution_generator(self, solution_generator):
-        self.solution_generator = solution_generator
-
-    def set_solution_evaluator(self, solution_evaluator):
-        self.solution_evaluator = solution_evaluator
-
-    def set_solution_visualizer(self, solution_visualizer):
-        self.solution_visualizer = solution_visualizer
-
-    def optimize(self, time_budget=None):
-        print "Searching for solutions"
-
-        if not self.solution_generator:
-            raise SolutionGeneratorNotAvailableException
-
-        if not self.solution_evaluator:
-            raise SolutionEvaluatorNotAvailableException
-
-        if time_budget:
-            current_time_budget = time_budget
-        elif self.time_budget:
-            current_time_budget = time_budget
-        else:
-            current_time_budget = None
-
-        return self.search(current_time_budget)
-
-    def search(self, time_budget=None):
         # the solution generator is the solution iterator method of the constraint problem object
         best_score = None
         best_solution = None
 
         # calculate the time to stop looking for better solutions
         end_time = None
-        if time_budget:
-            end_time = time.time() + time_budget
-
-        # get the generator's parameters
-        parameters = self.solution_generator.get_parameters()
+        if self.time_budget:
+            end_time = time.time() + self.time_budget
 
         # get the generator's solution iterator
         solution_iterator = self.solution_generator.get_solution_iterator()
@@ -115,7 +80,7 @@ class RandomSearchOptimizer(Optimizer):
 
 class HillClimbingOptimizer(Optimizer):
 
-    def optimize(self, time_budget=None):
+    def optimize(self):
         """
         Hill Climbing Algorithm
         currentNode = startNode;

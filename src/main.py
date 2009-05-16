@@ -32,10 +32,10 @@ def run():
     solution_visualizer = matcher_lib.MatcherSolutionVisualizer()
 
     # create the coordinator, injecting the created objects
-    #optimizer = optimization_lib.Optimizer(solution_generator, solution_evaluator, solution_visualizer)
-    optimizer = optimization_lib.HillClimbingOptimizer(solution_generator, solution_evaluator, solution_visualizer)
+    optimizer = optimization_lib.RandomSearchOptimizer(solution_generator, solution_evaluator, solution_visualizer)
+    #optimizer = optimization_lib.HillClimbingOptimizer(solution_generator, solution_evaluator, solution_visualizer)
 
-    optimizer.set_budget(100)
+    optimizer.set_time_budget(10)
 
     # run the coordinator
     solution = optimizer.optimize()

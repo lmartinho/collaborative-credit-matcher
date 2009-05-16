@@ -149,7 +149,6 @@ class MatcherSolutionGenerator(object):
     def get_parameters(self):
         return self.parameters
 
-    # @todo: build a neighbour list from a solution
     def get_neighborhood(self, solution):
         return self.problem.getNeighborhood(solution)
 
