@@ -1,3 +1,5 @@
+import math
+import random
 import time
 
 class SolutionGeneratorNotAvailableException(Exception):
@@ -128,3 +130,97 @@ class HillClimbingOptimizer(Optimizer):
                 return current_node
 
             current_node = next_node
+
+class SimulatedAnnealingOptimizer(Optimizer):
+    def optimize(self, iterations_budget=10000):
+        """
+        s <- s0; e <- E(s)                             // Initial state, energy.
+        sb <- s; eb <- e                               // Initial "best" solution
+        k <- 0                                        // Energy evaluation count.
+        while k < kmax and e > emax                  // While time remains and not good enough:
+          sn<- neighbour(s)                          //   Pick some neighbour.
+          en <- E(sn)                                 //   Compute its energy.
+          if en < eb then                            //   Is this a new best?
+            sb <- sn; eb <- en                         //     Yes, save it.
+          if P(e, en, temp(k/kmax)) > random() then  //   Should we move to it?
+            s <- sn; e <- en                           //     Yes, change state.
+          k <- k + 1                                  //   One more evaluation done
+        return sb                                    // Return the best solution found.
+        """
+
+        # get the generator's parameters
+        parameters = self.solution_generator.get_parameters()
+
+        # initial state
+        state = self.solution_generator.get_solution()
+
+        # get the initial state's score
+        state_utility = self.solution_evaluator.evaluate(parameters, state)
+        state_score = state_utility["score"]
+
+        # initial energy
+        energy = 1000
+
+        iterations = 0
+        # while termination conditions not met
+        while iterations < iterations_budget:
+            # get the current state's neighborhood
+            state_neighborhood = self.solution_generator.get_neighborhood(state)
+
+            # get a random neighbor
+            next_state = self.pick_at_random(state_neighborhood)
+
+            # get the next state score
+            next_state_utility = self.solution_evaluator.evaluate(parameters, next_state)
+            next_state_score = next_state_utility["score"]
+
+            if next_state_score > state_score:
+                state = next_state
+            else:
+                state = self.apply_acceptance_criterion(state, state_score, next_state, next_state_score, energy)
+
+            energy = self.apply_cooling_schedule(energy)
+            iterations += 1
+
+        return state
+
+    def pick_at_random(self, solution_list):
+        if not solution_list:
+            return None
+
+        maximum_index = len(solution_list) - 1
+
+        random_index = int(round(random.random() * maximum_index))
+
+        random_item = solution_list[random_index]
+
+        return random_item
+
+    def apply_acceptance_criterion(self, state, state_score, next_state, next_state_score, energy):
+        energy_difference = float(next_state_score) - state_score
+        acceptance_probability = math.exp(energy_difference / energy)
+
+        random_value = random.random()
+
+        if random_value <= acceptance_probability:
+            return next_state
+        else:
+            return state
+
+    def apply_cooling_schedule(self, energy):
+        cooling_alpha = 0.9 # (generally in the range 0.8 <= alpha <= 1)
+
+        return float(energy) * cooling_alpha
+
+
+class AntColonyOptimizer(Optimizer):
+    """
+    procedure ACOMetaheuristic
+        ScheduleActivities
+            ConstructAntsSolutions
+            UpdatePheromones
+            DaemonActions
+        end-ScheduleActivites
+    end-procedure
+    """
+    pass

@@ -32,8 +32,9 @@ def run():
     solution_visualizer = matcher_lib.MatcherSolutionVisualizer()
 
     # create the coordinator, injecting the created objects
-    optimizer = optimization_lib.RandomSearchOptimizer(solution_generator, solution_evaluator, solution_visualizer)
+    #optimizer = optimization_lib.RandomSearchOptimizer(solution_generator, solution_evaluator, solution_visualizer)
     #optimizer = optimization_lib.HillClimbingOptimizer(solution_generator, solution_evaluator, solution_visualizer)
+    optimizer = optimization_lib.SimulatedAnnealingOptimizer(solution_generator, solution_evaluator, solution_visualizer)
 
     optimizer.set_time_budget(10)
 
