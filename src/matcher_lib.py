@@ -8,7 +8,7 @@ import matcher_utils
 
 MAX_RATE = 10000
 
-class SolutionGenerator(object):
+class MatcherSolutionGenerator(object):
     """
     Generates matcher solutions for the configured problem,
     according to a standard parameter specification for credit matching problems.
@@ -23,7 +23,9 @@ class SolutionGenerator(object):
     def set_problem(self, parameters):
         self.parameters = parameters
 
-        self.problem = constraint.Problem(constraint.BacktrackingSolver())
+        self.solver = matcher_constraint.NeighborhoodBacktrackingSolver()
+
+        self.problem = matcher_constraint.MatcherProblem(self.solver, [self.increment_variable, self.decrement_variable])
 
         print "Adding variables: "
         self.create_variables()
@@ -108,6 +110,35 @@ class SolutionGenerator(object):
             # apply the constraint to the problem
             self.problem.addConstraint(borrower_maximum_rate_constraint, borrower_amounts_rates)
 
+    def increment_variable(self, variable, solution, domains):
+        new_solution = solution.copy()
+
+        # apply the operator to the specified variable
+        new_solution[variable] = solution[variable] + 1
+
+        # if the new variable value belongs to the domain
+        if new_solution[variable] in domains[variable]:
+            # return the computed solution
+            return new_solution
+        # if the resulting solution from applying the operator is
+        # not in the variable's domain, return None
+        else:
+            return None
+
+    def decrement_variable(self, variable, solution, domains):
+        new_solution = solution.copy()
+
+        new_solution[variable] = solution[variable] - 1
+
+        # if the new variable value belongs to the domain
+        if new_solution[variable] in domains[variable]:
+            # return the computed solution
+            return new_solution
+        # if the resulting solution from applying the operator is
+        # not in the variable's domain, return None
+        else:
+            return None
+
     def get_solution(self):
         # @todo: return the solution affected by MAX_RATE to standardize the generator API (always 1=100%)
         return self.solution_iterator.next()
@@ -119,10 +150,10 @@ class SolutionGenerator(object):
         return self.parameters
 
     # @todo: build a neighbour list from a solution
-    def get_neighbours(self, solution):
-        pass
+    def get_neighborhood(self, solution):
+        return self.problem.getNeighborhood(solution)
 
-class SolutionEvaluator:
+class MatcherSolutionEvaluator(object):
     """
     Evaluates a solution according to a selected utility function.
     """
@@ -368,117 +399,8 @@ class SolutionEvaluator:
 
         return borrower_rate_margins
 
-class SolutionGeneratorNotAvailableException(Exception):
-    pass
-
-class SolutionEvaluatorNotAvailableException(Exception):
-    pass
-
-class HillClimbingOptimizer(object):
-    pass
-
-    def optimize(self):
-        pass
-        #Hill Climbing Algorithm
-        #   currentNode = startNode;
-        #   loop do
-        #      L = NEIGHBORS(currentNode);
-        #      nextEval = -INF;
-        #      nextNode = NULL;
-        #      for all x in L
-        #         if (EVAL(x) > nextEval)
-        #              nextNode = x;
-        #              nextEval = EVAL(x);
-        #      if nextEval <= EVAL(currentNode)
-        #         //Return current node since no better neighbors exist
-        #         return currentNode;
-        #      currentNode = nextNode;
-
-
-class Optimizer(object):
-    """ Holds the search strategy used to optimize the problem, using the provided generator and evaluator. """
-
-    def __init__(self, solution_generator, solution_evaluator, solution_visualizer=None):
-        self.set_solution_generator(solution_generator)
-
-        self.set_solution_evaluator(solution_evaluator)
-
-        if solution_visualizer:
-            self.set_solution_visualizer(solution_visualizer)
-
-        # start with no time budget
-        self.time_budget = None
-
-    def set_budget(self, time_budget):
-        self.time_budget = time_budget
-
-    def set_solution_generator(self, solution_generator):
-        self.solution_generator = solution_generator
-
-    def set_solution_evaluator(self, solution_evaluator):
-        self.solution_evaluator = solution_evaluator
-
-    def set_solution_visualizer(self, solution_visualizer):
-        self.solution_visualizer = solution_visualizer
-
-    def optimize(self, time_budget=None):
-        print "Searching for solutions"
-
-        if not self.solution_generator:
-            raise SolutionGeneratorNotAvailableException
-
-        if not self.solution_evaluator:
-            raise SolutionEvaluatorNotAvailableException
-
-        if time_budget:
-            current_time_budget = time_budget
-        elif self.time_budget:
-            current_time_budget = time_budget
-        else:
-            current_time_budget = None
-
-        return self.search(current_time_budget)
-
-    def search(self, time_budget=None):
-        # the solution generator is the solution iterator method of the constraint problem object
-        best_score = None
-        best_solution = None
-
-        # calculate the time to stop looking for better solutions
-        end_time = None
-        if time_budget:
-            end_time = time.time() + time_budget
-
-        # get the generator's parameters
-        parameters = self.solution_generator.get_parameters()
-
-        # get the generator's solution iterator
-        solution_iterator = self.solution_generator.get_solution_iterator()
-
-        for solution in solution_iterator:
-            utility = self.solution_evaluator.evaluate(parameters, solution)
-            score = utility["score"]
-            if score > best_score:
-                # store the new best result
-                best_score = score
-                best_utility = utility
-                best_solution = solution
-
-            # if there's a time budget, and it has been exceeded: stop
-            if end_time and time.time() >= end_time:
-                break
-
-            # display the current status (subject to double buffering)
-            self.solution_visualizer.display(parameters, best_solution, utility)
-
-        if not best_solution:
-            raise matcher_constraint.NoSolutionAvailableException
-
-        return (best_solution, best_utility)
-
-class SolutionVisualizer:
-
-    def __init__(self, refresh_display_buffer=10):
+class MatcherSolutionVisualizer(object):
+    def __init__(self, refresh_display_buffer=0):
         # initialize the double buffering control values
         self.refresh_display_buffer = refresh_display_buffer
         self.next_display_time = None

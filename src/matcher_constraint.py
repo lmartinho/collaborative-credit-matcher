@@ -1,6 +1,25 @@
 import constraint
+import random
 
 import matcher_utils
+
+class MatcherProblem(constraint.Problem):
+    def __init__(self, solver, operators):
+        constraint.Problem.__init__(self, solver)
+        self.setOperators(operators)
+
+    def getNeighborhood(self, solution):
+        """
+        Find and return the neighboring solutions to a given solution.
+        """
+        domains, constraints, vconstraints = self._getArgs()
+        operators = self._operators
+        if not domains:
+            return []
+        return self._solver.getNeighborhood(solution, domains, constraints, vconstraints, operators)
+
+    def setOperators(self, operators):
+        self._operators = operators
 
 class NoSolutionAvailableException(Exception):
     pass
@@ -172,3 +191,42 @@ class MinWeightedAverageOrDefaultConstraint(constraint.Constraint):
         if cummulative_weighted_average < min_weighted_average and cummulative_weighted_average != default_value:
             return False
         return True
+
+class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
+
+    def getNeighborhood(self, solution, domains, constraints, vconstraints, operators):
+        """
+        Generates the neighborhood of solutions, for a specified solution.
+        Applies the provided operators to all the existing variables, to generate all the possible paths.
+        Each generated solutions is tested for validity, according to the existing constraints.
+        The set of valid generated solutions is returned as a list.
+        """
+
+        neighbor_solutions = []
+
+        for variable in domains:
+            for operator in operators:
+                neighbor_solution = operator(variable, solution, domains)
+
+                if self.validSolution(neighbor_solution, domains, vconstraints):
+                    neighbor_solutions.append(neighbor_solution)
+
+        return neighbor_solutions
+
+    def validSolution(self, solution, domains, vconstraints):
+        if not solution:
+            return False
+
+        assignments = solution
+        lst = domains.keys()
+        random.shuffle(lst)
+
+        for variable in lst:
+            # check if variable is not in conflict
+            for constraint, variables in vconstraints[variable]:
+                # if a single constraint is broken, the solution is invalid
+                if not constraint(variables, domains, assignments):
+                    return False
+
+            # if all the constraints apply, the solution is valid
+            return True

@@ -63,10 +63,8 @@ def build_solutions_map(parameters, solution):
 
     return solutions
 
-def print_match(match):
-    amount, rate = match
-
-    print "(%6.2f@%4.2f%%)" % (amount, rate),
+def print_match(amount, rate):
+    print "(%6.2f@%5.2f%%)" % (amount, rate),
 
 def print_utility(utility):
     print "Utility:"
@@ -89,11 +87,13 @@ def print_solutions_map(parameters, solutions_map):
     borrowers = parameters["borrowers"]
 
     # print the header
-    print "                ",
+    print "                   |",
     for borrower_id, borrower in borrowers.items():
         amount = borrower["maximum_amount"]
         rate = borrower["maximum_rate"] * 100
-        print "B%s:%6.2f@%4.2f%%  " % (borrower_id, amount, rate),
+        print "B%s" % borrower_id,
+        print_match(amount, rate)
+        print "  ",
 
     print
     print ""
@@ -104,9 +104,12 @@ def print_solutions_map(parameters, solutions_map):
         lender = lenders[lender_id]
         amount = lender["maximum_amount"]
         rate = lender["minimum_rate"] * 100
-        print "L%s:%6.2f@%4.2f%% | " % (lender_id, amount, rate),
-        for borrower_solution in lender_solutions.values():
-            print_match(borrower_solution),
+        print "L%s" % lender_id,
+        print_match(amount, rate)
+        print "|  ",
+
+        for borrower_solution_amount, borrower_solution_rate in lender_solutions.values():
+            print_match(borrower_solution_amount, borrower_solution_rate),
             print "  ",
         print ""
         i += 1
