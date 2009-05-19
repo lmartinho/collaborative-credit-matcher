@@ -152,6 +152,12 @@ class MatcherSolutionGenerator(object):
     def get_neighborhood(self, solution):
         return self.problem.getNeighborhood(solution)
 
+    def get_closest_valid_solution(self, candidate_solution):
+        return self.problem.getClosestValidSolution(candidate_solution)
+
+    def get_variables(self):
+        return self.problem.getVariables()
+
 class MatcherSolutionEvaluator(object):
     """
     Evaluates a solution according to a selected utility function.
@@ -247,6 +253,7 @@ class MatcherSolutionEvaluator(object):
 
         return results
 
+    # @TODO: refactor the utility functions: use fitness_map as the return, and store the function value at the "fitness" index
     def tight_margin_utility(self, parameters, results):
         # calculate the overall member rate margin
         lender_rates_margin = self.calculate_lender_rates_margin(parameters, results)
