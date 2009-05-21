@@ -18,22 +18,20 @@ class MatcherSolutionGenerator(object):
 
     def __init__(self, parameters=None):
         if parameters:
-            self.set_problem(parameters)
+            self.set_parameters(parameters)
 
-    def set_problem(self, parameters):
+    def set_parameters(self, parameters):
         self.parameters = parameters
 
         self.solver = matcher_constraint.NeighborhoodBacktrackingSolver()
 
         self.problem = matcher_constraint.MatcherProblem(self.solver, [self.increment_variable, self.decrement_variable])
 
-        print "Adding variables: "
         self.create_variables()
 
-        print "Adding amount and rate constraints: "
+        # @TODO: major bug: not restricting the amounts correctly
         self.create_constraints()
 
-        print "Building solution iterator: "
         self.solution_iterator = self.problem.getSolutionIter()
 
     def create_variables(self):
@@ -164,6 +162,9 @@ class MatcherSolutionEvaluator(object):
     """
 
     def __init__(self, utility_function):
+        self.set_utility_function(utility_function)
+
+    def set_utility_function(self, utility_function):
         self.utility_function = utility_function
 
     def evaluate(self, parameters, solution):

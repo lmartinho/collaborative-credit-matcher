@@ -14,7 +14,7 @@ class Optimizer(object):
     using the provided generator and evaluator.
     """
 
-    def __init__(self, solution_generator, solution_evaluator, solution_visualizer=None, time_budget=None):
+    def __init__(self, solution_generator, solution_evaluator, solution_visualizer=None):
         self.set_solution_generator(solution_generator)
 
         self.set_solution_evaluator(solution_evaluator)
@@ -22,11 +22,36 @@ class Optimizer(object):
         if solution_visualizer:
             self.set_solution_visualizer(solution_visualizer)
 
-        # start with no time budget
-        self.set_time_budget(time_budget)
+        # initialize the time budget
+        self.time_budget = None
+
+        # initialize the iterations budget
+        self.iterations_budget = None
+
+        # initialize the iterations counter
+        self.iterations = 0
+
+    def optimize(self, time_budget=None):
+        raise NotImplementedError, \
+              "%s is an abstract class" % self.__class__.__name__
+
+    def get_time_budget(self):
+        return self.time_budget
 
     def set_time_budget(self, time_budget):
         self.time_budget = time_budget
+
+    def get_iterations_budget(self):
+        return self.iterations_budget
+
+    def set_iterations_budget(self, iterations_budget):
+        self.iterations_budget = iterations_budget
+
+    def get_iterations(self):
+        """
+        Returns the number of iterations executed, in the last call to optimize.
+        """
+        return self.iterations
 
     def set_solution_generator(self, solution_generator):
         self.solution_generator = solution_generator
@@ -36,10 +61,6 @@ class Optimizer(object):
 
     def set_solution_visualizer(self, solution_visualizer):
         self.solution_visualizer = solution_visualizer
-
-    def optimize(self, time_budget=None):
-        raise NotImplementedError, \
-              "%s is an abstract class" % self.__class__.__name__
 
 class RandomSearchOptimizer(Optimizer):
 
@@ -52,16 +73,23 @@ class RandomSearchOptimizer(Optimizer):
         best_solution = None
 
         # calculate the time to stop looking for better solutions
-        end_time = None
+        start_time = time.time()
+        stop_time = None
         if self.time_budget:
-            end_time = time.time() + self.time_budget
+            stop_time = start_time + self.time_budget
+
+        # initialize the iteration counter
+        self.iterations = 0
 
         # get the generator's solution iterator
         solution_iterator = self.solution_generator.get_solution_iterator()
 
         for solution in solution_iterator:
+            # evaluate the current solution
             utility = self.solution_evaluator.evaluate(parameters, solution)
             score = utility["score"]
+
+            # if the current score is better than the best score so far
             if score > best_score:
                 # store the new best result
                 best_score = score
@@ -69,11 +97,15 @@ class RandomSearchOptimizer(Optimizer):
                 best_solution = solution
 
             # if there's a time budget, and it has been exceeded: stop
-            if end_time and time.time() >= end_time:
+            if stop_time and time.time() >= stop_time:
                 break
 
-            # display the current status (subject to double buffering)
-            #self.solution_visualizer.display(parameters, best_solution, utility)
+            # if there's an iteration budget, and it has been exceeded: stop
+            if self.iterations_budget and self.iterations >= self.iterations_budget:
+                break
+
+            # update the iteration counter
+            self.iterations += 1
 
         if not best_solution:
             raise matcher_constraint.NoSolutionAvailableException
@@ -99,12 +131,22 @@ class HillClimbingOptimizer(Optimizer):
                 return currentNode;
             currentNode = nextNode;
         """
+        debug = False
+
         # get the generator's parameters
         parameters = self.solution_generator.get_parameters()
 
         current_node = self.solution_generator.get_solution()
         current_node_utility = self.solution_evaluator.evaluate(parameters, current_node)
         current_node_score = current_node_utility["score"]
+
+        # calculate the time to stop looking for better solutions
+        stop_time = None
+        if self.time_budget:
+            stop_time = time.time() + self.time_budget
+
+        # initialize the iteration counter
+        self.iterations = 0
 
         while True:
             neighborhood = self.solution_generator.get_neighborhood(current_node)
@@ -123,13 +165,25 @@ class HillClimbingOptimizer(Optimizer):
                     next_node_score = node_score
 
                     # display the current status (subject to double buffering)
-                    self.solution_visualizer.display(parameters, node, node_utility)
+                    if debug:
+                        self.solution_visualizer.display(parameters, node, node_utility)
 
             # if no better neighbors exist, return the current node
             if next_node_score <= current_node_score:
                 return current_node
 
             current_node = next_node
+
+            # if there's a time budget, and it has been exceeded: stop
+            if stop_time and time.time() >= stop_time:
+                return current_node
+
+            # if there's an iteration budget, and it has been exceeded: stop
+            if self.iterations_budget and self.iterations >= self.iterations_budget:
+                return current_node
+
+            # update the iteration counter
+            self.iterations += 1
 
 class SimulatedAnnealingOptimizer(Optimizer):
     def optimize(self, iterations_budget=10000):
@@ -147,6 +201,7 @@ class SimulatedAnnealingOptimizer(Optimizer):
           k <- k + 1                                  //   One more evaluation done
         return sb                                    // Return the best solution found.
         """
+        debug = False
 
         # get the generator's parameters
         parameters = self.solution_generator.get_parameters()
@@ -161,12 +216,17 @@ class SimulatedAnnealingOptimizer(Optimizer):
         # initial energy
         energy = 1000
 
-        iterations = 0
-        # while termination conditions not met
-        while iterations < iterations_budget:
-            # update the iteration count
-            iterations += 1
+        # calculate the time to stop looking for better solutions
+        start_time = time.time()
+        stop_time = None
+        if self.time_budget:
+            stop_time = start_time + self.time_budget
 
+        # initialize the iteration counter
+        self.iterations = 0
+
+        # while termination conditions not met
+        while True:
             # get the current state's neighborhood
             state_neighborhood = self.solution_generator.get_neighborhood(state)
 
@@ -187,12 +247,23 @@ class SimulatedAnnealingOptimizer(Optimizer):
                 state = self.apply_acceptance_criterion(state, state_score, next_state, next_state_score, energy)
 
             # if a state transition occurred, show the new state
-            if state == next_state:
+            if debug and state == next_state:
                 # show the new best solution
                 self.solution_visualizer.display_solution(parameters, next_state)
                 self.solution_visualizer.display_utility(next_state_utility)
 
             energy = self.apply_cooling_schedule(energy)
+
+            # if there's a time budget, and it has been exceeded: stop
+            if stop_time and time.time() >= stop_time:
+                break
+
+            # if there's an iteration budget, and it has been exceeded: stop
+            if self.iterations_budget and self.iterations >= self.iterations_budget:
+                break
+
+            # update the iteration counter
+            self.iterations += 1
 
         return state
 
@@ -292,6 +363,8 @@ class ParticleSwarmOptimizer(Optimizer):
     enddo
     """
     def optimize(self, iterations_budget=10000):
+        debug = False
+
         number_particles = 10
         inertial_constant = 0.9
         cognitive_weight = 2
@@ -330,12 +403,17 @@ class ParticleSwarmOptimizer(Optimizer):
             particle_solutions_local_bests.append(None)
             particle_fitnesses_local_bests.append(None)
 
-        iterations = 0
-        # loop until convergence
-        while iterations < iterations_budget:
-            # update the iteration count
-            iterations += 1
+        # calculate the time to stop looking for better solutions
+        start_time = time.time()
+        stop_time = None
+        if self.time_budget:
+            stop_time = time.time() + self.time_budget
 
+        # initialize the iteration counter
+        self.iterations = 0
+
+        # loop until convergence
+        while True:
             # calculate the fitness of each particle
             particle_fitnesses = self.evaluate_swarm(particle_solutions)
 
@@ -385,9 +463,21 @@ class ParticleSwarmOptimizer(Optimizer):
                 particle_solutions[particle] = particle_next_solution
 
                 # visualize the current solution
-                print "Particle ", particle
-                parameters = self.solution_generator.get_parameters()
-                self.solution_visualizer.display_solution(parameters, particle_next_solution)
+                if debug:
+                    print "Particle ", particle
+                    parameters = self.solution_generator.get_parameters()
+                    self.solution_visualizer.display_solution(parameters, particle_next_solution)
+
+            # if there's a time budget, and it has been exceeded: stop
+            if stop_time and time.time() >= stop_time:
+                break
+
+            # if there's an iteration budget, and it has been exceeded: stop
+            if self.iterations_budget and self.iterations >= self.iterations_budget:
+                break
+
+            # update the iteration counter
+            self.iterations += 1
 
         return global_best_solution
 
@@ -416,4 +506,6 @@ class ParticleSwarmOptimizer(Optimizer):
         Uses the solution generator to retrieve a valid approximation to the
         computed candidate solution.
         """
-        return self.solution_generator.get_closest_valid_solution(particle_candidate_solution)
+        # @TODO: missing constraints for development purposes
+        #return self.solution_generator.get_closest_valid_solution(particle_candidate_solution)
+        return particle_candidate_solution
