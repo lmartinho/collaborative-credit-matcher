@@ -26,38 +26,29 @@ def measured_run1():
     simulated_annealing_optimizer = optimization_lib.SimulatedAnnealingOptimizer(solution_generator, solution_evaluator, solution_visualizer)
     particle_swarm_optimizer = optimization_lib.ParticleSwarmOptimizer(solution_generator, solution_evaluator, solution_visualizer)
 
-    time_budget = 10
+    time_budget = 3
 
-    print "RandomSearchOptimizer"
-    run_optimizer(parameters, random_search_optimizer, solution_evaluator, solution_visualizer, time_budget)
+    optimizers = [random_search_optimizer, hill_climbing_optimizer, simulated_annealing_optimizer, particle_swarm_optimizer]
 
-    print "HillClimbingOptimizer"
-    run_optimizer(parameters, hill_climbing_optimizer, solution_evaluator, solution_visualizer, time_budget)
-
-    print "SimulatedAnnealingOptimizer"
-    run_optimizer(parameters, simulated_annealing_optimizer, solution_evaluator, solution_visualizer, time_budget)
-
-    print "ParticleSwarmOptimizer"
-    run_optimizer(parameters, particle_swarm_optimizer, solution_evaluator, solution_visualizer, time_budget)
+    for optimizer in optimizers:
+        run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget)
 
 def run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget):
+    print optimizer
     optimizer.set_time_budget(time_budget)
 
     # run the metaheuristic
-    start_time = time.time()
     solution = optimizer.optimize()
-    end_time = time.time()
-
-    duration = end_time - start_time
-    iterations = optimizer.get_iterations()
 
     # evaluate the final solution
     utility = solution_evaluator.evaluate(parameters, solution)
 
     # display the results
     solution_visualizer.display(parameters, solution, utility)
-    print "iterations: %s" % iterations
-    print "elapsed time: %ss" % duration
+
+    # display the execution stats from the optimizer
+    print "iterations: %s" % optimizer.get_last_run_iterations()
+    print "elapsed time: %ss" % optimizer.get_last_run_duration()
     print "--"
 
 measured_run1()

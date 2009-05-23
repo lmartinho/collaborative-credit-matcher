@@ -80,7 +80,7 @@ def print_utility(utility):
 
     print "tightness", utility["tightness"]
 
-    print "score: ", utility["score"]
+    print "*score*: ", utility["score"]
 
 def print_solutions_map(parameters, solutions_map):
     lenders = parameters["lenders"]

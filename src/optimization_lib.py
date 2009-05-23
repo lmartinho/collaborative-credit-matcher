@@ -2,6 +2,34 @@ import math
 import random
 import time
 
+def timed_optimizer_run(func):
+    """
+    A decorator to provided timing for optimizer runs.
+    """
+    def wrapper(*args):
+        # get the optimizer instance whose method was invoked
+        instance = args[0]
+        # the start time for the run
+        start_time = time.time()
+
+        # run the method
+        method_return = func(*args)
+
+        # the end time for the run
+        end_time = time.time()
+        # the run duration
+        duration = end_time - start_time
+
+        # set the computed duration as the last run duration, in the selected instance
+        instance._set_last_run_duration(duration)
+
+        # return the method's return
+        return method_return
+
+    # return the wrapper to be called in the place
+    # of the selected instance
+    return wrapper
+
 class SolutionGeneratorNotAvailableException(Exception):
     pass
 
@@ -29,11 +57,40 @@ class Optimizer(object):
         self.iterations_budget = None
 
         # initialize the iterations counter
-        self.iterations = 0
+        self.last_run_iterations = 0
 
+        # initialize the duration time
+        self.last_run_duration = 0
+
+    @timed_optimizer_run
     def optimize(self, time_budget=None):
         raise NotImplementedError, \
               "%s is an abstract class" % self.__class__.__name__
+
+    def reset_termination_conditions(self):
+        # calculate the time to stop looking for better solutions
+        self.start_time = time.time()
+        self.stop_time = None
+        if self.time_budget:
+            self.stop_time = self.start_time + self.time_budget
+
+        # initialize the iteration counter
+        self.last_run_iterations = 0
+
+    def termination_conditions_met(self):
+        # if there's a time budget, and it has been exceeded: stop
+        if self.stop_time and time.time() >= self.stop_time:
+            return True
+
+        # if there's an iteration budget, and it has been exceeded: stop
+        if self.iterations_budget and self.last_run_iterations >= self.iterations_budget:
+            return True
+
+        # update the iteration counter
+        self.last_run_iterations += 1
+
+        # keep running, termination conditions not met
+        return False
 
     def get_time_budget(self):
         return self.time_budget
@@ -47,11 +104,23 @@ class Optimizer(object):
     def set_iterations_budget(self, iterations_budget):
         self.iterations_budget = iterations_budget
 
-    def get_iterations(self):
+    def get_last_run_iterations(self):
         """
-        Returns the number of iterations executed, in the last call to optimize.
+        Returns the number of iterations executed, in the optimizer run.
         """
-        return self.iterations
+        return self.last_run_iterations
+
+    def get_last_run_duration(self):
+        """
+        Returns the duration of the last optimizer run.
+        """
+        return self.last_run_duration
+
+    def _set_last_run_duration(self, duration):
+        """
+        Sets the duration of the last optimizer run.
+        """
+        self.last_run_duration = duration
 
     def set_solution_generator(self, solution_generator):
         self.solution_generator = solution_generator
@@ -64,7 +133,10 @@ class Optimizer(object):
 
 class RandomSearchOptimizer(Optimizer):
 
+    @timed_optimizer_run
     def optimize(self):
+        self.reset_termination_conditions()
+
         # get the generator's parameters
         parameters = self.solution_generator.get_parameters()
 
@@ -72,19 +144,11 @@ class RandomSearchOptimizer(Optimizer):
         best_score = None
         best_solution = None
 
-        # calculate the time to stop looking for better solutions
-        start_time = time.time()
-        stop_time = None
-        if self.time_budget:
-            stop_time = start_time + self.time_budget
+        while not self.termination_conditions_met():
+            solution = self.solution_generator.get_solution()
+            if not solution:
+                break
 
-        # initialize the iteration counter
-        self.iterations = 0
-
-        # get the generator's solution iterator
-        solution_iterator = self.solution_generator.get_solution_iterator()
-
-        for solution in solution_iterator:
             # evaluate the current solution
             utility = self.solution_evaluator.evaluate(parameters, solution)
             score = utility["score"]
@@ -96,17 +160,6 @@ class RandomSearchOptimizer(Optimizer):
                 best_utility = utility
                 best_solution = solution
 
-            # if there's a time budget, and it has been exceeded: stop
-            if stop_time and time.time() >= stop_time:
-                break
-
-            # if there's an iteration budget, and it has been exceeded: stop
-            if self.iterations_budget and self.iterations >= self.iterations_budget:
-                break
-
-            # update the iteration counter
-            self.iterations += 1
-
         if not best_solution:
             raise matcher_constraint.NoSolutionAvailableException
 
@@ -114,6 +167,7 @@ class RandomSearchOptimizer(Optimizer):
 
 class HillClimbingOptimizer(Optimizer):
 
+    @timed_optimizer_run
     def optimize(self):
         """
         Hill Climbing Algorithm
@@ -131,6 +185,8 @@ class HillClimbingOptimizer(Optimizer):
                 return currentNode;
             currentNode = nextNode;
         """
+        self.reset_termination_conditions()
+
         debug = False
 
         # get the generator's parameters
@@ -140,15 +196,7 @@ class HillClimbingOptimizer(Optimizer):
         current_node_utility = self.solution_evaluator.evaluate(parameters, current_node)
         current_node_score = current_node_utility["score"]
 
-        # calculate the time to stop looking for better solutions
-        stop_time = None
-        if self.time_budget:
-            stop_time = time.time() + self.time_budget
-
-        # initialize the iteration counter
-        self.iterations = 0
-
-        while True:
+        while not self.termination_conditions_met():
             neighborhood = self.solution_generator.get_neighborhood(current_node)
 
             next_node_score = None
@@ -174,18 +222,11 @@ class HillClimbingOptimizer(Optimizer):
 
             current_node = next_node
 
-            # if there's a time budget, and it has been exceeded: stop
-            if stop_time and time.time() >= stop_time:
-                return current_node
-
-            # if there's an iteration budget, and it has been exceeded: stop
-            if self.iterations_budget and self.iterations >= self.iterations_budget:
-                return current_node
-
-            # update the iteration counter
-            self.iterations += 1
+        return current_node
 
 class SimulatedAnnealingOptimizer(Optimizer):
+
+    @timed_optimizer_run
     def optimize(self, iterations_budget=10000):
         """
         s <- s0; e <- E(s)                             // Initial state, energy.
@@ -201,6 +242,8 @@ class SimulatedAnnealingOptimizer(Optimizer):
           k <- k + 1                                  //   One more evaluation done
         return sb                                    // Return the best solution found.
         """
+        self.reset_termination_conditions()
+
         debug = False
 
         # get the generator's parameters
@@ -216,17 +259,8 @@ class SimulatedAnnealingOptimizer(Optimizer):
         # initial energy
         energy = 1000
 
-        # calculate the time to stop looking for better solutions
-        start_time = time.time()
-        stop_time = None
-        if self.time_budget:
-            stop_time = start_time + self.time_budget
-
-        # initialize the iteration counter
-        self.iterations = 0
-
         # while termination conditions not met
-        while True:
+        while not self.termination_conditions_met():
             # get the current state's neighborhood
             state_neighborhood = self.solution_generator.get_neighborhood(state)
 
@@ -253,17 +287,6 @@ class SimulatedAnnealingOptimizer(Optimizer):
                 self.solution_visualizer.display_utility(next_state_utility)
 
             energy = self.apply_cooling_schedule(energy)
-
-            # if there's a time budget, and it has been exceeded: stop
-            if stop_time and time.time() >= stop_time:
-                break
-
-            # if there's an iteration budget, and it has been exceeded: stop
-            if self.iterations_budget and self.iterations >= self.iterations_budget:
-                break
-
-            # update the iteration counter
-            self.iterations += 1
 
         return state
 
@@ -362,7 +385,10 @@ class ParticleSwarmOptimizer(Optimizer):
 
     enddo
     """
+    @timed_optimizer_run
     def optimize(self, iterations_budget=10000):
+        self.reset_termination_conditions()
+
         debug = False
 
         number_particles = 10
@@ -410,10 +436,10 @@ class ParticleSwarmOptimizer(Optimizer):
             stop_time = time.time() + self.time_budget
 
         # initialize the iteration counter
-        self.iterations = 0
+        self.last_run_iterations = 0
 
         # loop until convergence
-        while True:
+        while not self.termination_conditions_met():
             # calculate the fitness of each particle
             particle_fitnesses = self.evaluate_swarm(particle_solutions)
 
@@ -473,11 +499,11 @@ class ParticleSwarmOptimizer(Optimizer):
                 break
 
             # if there's an iteration budget, and it has been exceeded: stop
-            if self.iterations_budget and self.iterations >= self.iterations_budget:
+            if self.iterations_budget and self.last_run_iterations >= self.iterations_budget:
                 break
 
             # update the iteration counter
-            self.iterations += 1
+            self.last_run_iterations += 1
 
         return global_best_solution
 
