@@ -7,9 +7,14 @@ def measured_run1():
     parameters = {"lenders" : {"1": {"minimum_rate" : 0.05, "minimum_amount" : 10, "maximum_amount" : 100},
                                "2": {"minimum_rate" : 0.04, "minimum_amount" : 20, "maximum_amount" : 200},
                                "3": {"minimum_rate" : 0.03, "minimum_amount" : 30, "maximum_amount" : 300}},
-                  "borrowers" : {"4": {"maximum_rate" : 0.15, "minimum_amount" : 10, "maximum_amount" : 100},
-                                 "5": {"maximum_rate" : 0.10, "minimum_amount" : 20, "maximum_amount" : 200},
+                  "borrowers" : {"4": {"maximum_rate" : 0.15, "minimum_amount" : 10, "maximum_amount" : 300},
+                                 "5": {"maximum_rate" : 0.10, "minimum_amount" : 20, "maximum_amount" : 300},
                                  "6": {"maximum_rate" : 0.01, "minimum_amount" : 30, "maximum_amount" : 300}}}
+
+#    parameters = {"lenders" : {"1": {"minimum_rate" : 0.05, "minimum_amount" : 10, "maximum_amount" : 100},
+#                               "2": {"minimum_rate" : 0.04, "minimum_amount" : 20, "maximum_amount" : 200}},
+#                  "borrowers" : {"4": {"maximum_rate" : 0.15, "minimum_amount" : 10, "maximum_amount" : 100},
+#                                 "5": {"maximum_rate" : 0.10, "minimum_amount" : 20, "maximum_amount" : 100}}}
 
     # create the generator
     solution_generator = matcher_lib.MatcherSolutionGenerator(parameters)
@@ -26,16 +31,22 @@ def measured_run1():
     simulated_annealing_optimizer = optimization_lib.SimulatedAnnealingOptimizer(solution_generator, solution_evaluator, solution_visualizer)
     particle_swarm_optimizer = optimization_lib.ParticleSwarmOptimizer(solution_generator, solution_evaluator, solution_visualizer)
 
-    time_budget = 3
+    time_budget = 10
+    iterations_budget = None
 
-    optimizers = [random_search_optimizer, hill_climbing_optimizer, simulated_annealing_optimizer, particle_swarm_optimizer]
+    #optimizers = [random_search_optimizer, hill_climbing_optimizer, simulated_annealing_optimizer, particle_swarm_optimizer]
+    optimizers = [hill_climbing_optimizer]
 
     for optimizer in optimizers:
-        run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget)
+        run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget, iterations_budget)
 
-def run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget):
+def run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget=None, iterations_budget=None):
     print optimizer
-    optimizer.set_time_budget(time_budget)
+
+    if time_budget:
+        optimizer.set_time_budget(time_budget)
+    if iterations_budget:
+        optimizer.set_iterations_budget(iterations_budget)
 
     # run the metaheuristic
     solution = optimizer.optimize()

@@ -12,6 +12,7 @@ class MatcherSolutionGenerator(object):
     """
     Generates matcher solutions for the configured problem,
     according to a standard parameter specification for credit matching problems.
+    Uses the matcher constraint library as the key solution generation mechanism.
 
     @capability: solution_generator(set_problem, get_solution, get_solution_iterator)
     """
@@ -93,7 +94,7 @@ class MatcherSolutionGenerator(object):
             borrower_minimum_amount_constraint = constraint.MinSumConstraint(borrower["minimum_amount"])
 
             # apply the constraints to the problem
-            self.problem.addConstraint(borrower_minimum_amount_constraint, borrower_amounts)
+            self.problem.addConstraint(borrower_maximum_amount_constraint, borrower_amounts)
             self.problem.addConstraint(borrower_minimum_amount_constraint, borrower_amounts)
 
             # build a list of all the rate variables for the current borrower
@@ -278,18 +279,15 @@ class MatcherSolutionEvaluator(object):
         # compute the composite utility of the specified solution results
         utility = {}
 
+        utility["results"] = results
         utility["borrower_rates_margin"] = borrower_rates_margin
         utility["lender_rates_margin"] = lender_rates_margin
         utility["member_rates_margin"] = member_rates_margin
-
         utility["total_offered_amount"] = total_offered_amount
         utility["total_requested_amount"] = total_requested_amount
         utility["total_matched_amount"] = total_matched_amount
-
         utility["fulfillment_rate"] = fulfillment_rate
-
         utility["tightness"] = tightness
-
         utility["score"] = member_rates_margin * tightness * fulfillment_rate
 
         return utility

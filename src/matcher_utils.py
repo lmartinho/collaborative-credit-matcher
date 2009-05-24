@@ -71,15 +71,12 @@ def print_utility(utility):
     print "borrower_rates_margin: ", utility["borrower_rates_margin"]
     print "lender_rates_margin: ", utility["lender_rates_margin"]
     print "member_rates_margin", utility["member_rates_margin"]
-
     print "total_offered_amount", utility["total_offered_amount"]
     print "total_requested_amount", utility["total_requested_amount"]
     print "total_matched_amount", utility["total_matched_amount"]
-
     print "fulfillment_rate", utility["fulfillment_rate"]
-
     print "tightness", utility["tightness"]
-
+    print "individual results: ", utility["results"]
     print "*score*: ", utility["score"]
 
 def print_solutions_map(parameters, solutions_map):

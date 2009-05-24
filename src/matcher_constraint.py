@@ -180,8 +180,8 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
                 if not constraint(variables, domains, assignments):
                     return False
 
-            # if all the constraints apply, the solution is valid
-            return True
+        # if all the constraints apply, the solution is valid
+        return True
 
     def getClosestValidSolution(self, candidate_solution, domains, constraints, vconstraints, operators):
         # recursively get the neighborhoods, until a valid solution is obtained
