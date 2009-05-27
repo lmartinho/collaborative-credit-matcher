@@ -1,20 +1,89 @@
 import time
+import random
 
 import matcher_lib
 import optimization_lib
 
-def measured_run1():
-    parameters = {"lenders" : {"1": {"minimum_rate" : 0.05, "minimum_amount" : 10, "maximum_amount" : 100},
-                               "2": {"minimum_rate" : 0.04, "minimum_amount" : 20, "maximum_amount" : 200},
-                               "3": {"minimum_rate" : 0.03, "minimum_amount" : 30, "maximum_amount" : 300}},
-                  "borrowers" : {"4": {"maximum_rate" : 0.15, "minimum_amount" : 10, "maximum_amount" : 300},
-                                 "5": {"maximum_rate" : 0.10, "minimum_amount" : 20, "maximum_amount" : 300},
-                                 "6": {"maximum_rate" : 0.01, "minimum_amount" : 30, "maximum_amount" : 300}}}
+def generate_scenario(parameters):
+    scenario = {}
 
-#    parameters = {"lenders" : {"1": {"minimum_rate" : 0.05, "minimum_amount" : 10, "maximum_amount" : 100},
-#                               "2": {"minimum_rate" : 0.04, "minimum_amount" : 20, "maximum_amount" : 200}},
-#                  "borrowers" : {"4": {"maximum_rate" : 0.15, "minimum_amount" : 10, "maximum_amount" : 100},
-#                                 "5": {"maximum_rate" : 0.10, "minimum_amount" : 20, "maximum_amount" : 100}}}
+    # generate lenders
+    lenders = {}
+    for lender in range(parameters["number_lenders"]):
+        lender_parameters = {}
+
+        lender_parameters["minimum_rate"] = round(random.gauss(parameters["mean_lender_rate"], parameters["lender_rate_standard_deviation"]), 2)
+        lender_parameters["minimum_amount"] = int(round(random.gauss(parameters["mean_lender_amount"], parameters["lender_amount_standard_deviation"])))
+        lender_parameters["maximum_amount"] = lender_parameters["minimum_amount"] * 2
+
+        lenders[lender] = lender_parameters
+    scenario["lenders"] = lenders
+
+    # generate borrowers
+    borrowers = {}
+    for borrower in range(parameters["number_borrowers"]):
+        borrower_parameters = {}
+
+        borrower_parameters["maximum_rate"] = round(random.gauss(parameters["mean_borrower_rate"], parameters["borrower_rate_standard_deviation"]), 2)
+        borrower_parameters["minimum_amount"] = int(round(random.gauss(parameters["mean_borrower_amount"], parameters["borrower_amount_standard_deviation"])))
+        borrower_parameters["maximum_amount"] = borrower_parameters["minimum_amount"] * 2
+
+        borrowers[borrower] = borrower_parameters
+    scenario["borrowers"]= borrowers
+
+    return scenario
+
+def measured_run1():
+
+#    # homogeneous mean, larger deviation
+#    parameters = {"mean_lender_amount" : 1000,
+#                  "lender_amount_standard_deviation" : 100,
+#                  "mean_lender_rate" : 0.10,
+#                  "lender_rate_standard_deviation" : 0.05,
+#                  "mean_borrower_amount" : 1000,
+#                  "borrower_amount_standard_deviation" : 100,
+#                  "mean_borrower_rate" : 0.10,
+#                  "borrower_rate_standard_deviation" : 0.05,
+#                  "number_lenders" : 10,
+#                  "number_borrowers" : 10}
+#
+#    # conservative lenders, aggressive borrowers
+#    parameters = {"mean_lender_amount" : 1000,
+#                  "lender_amount_standard_deviation" : 100,
+#                  "mean_lender_rate" : 0.20,
+#                  "lender_rate_standard_deviation" : 0.01,
+#                  "mean_borrower_amount" : 1000,
+#                  "borrower_amount_standard_deviation" : 100,
+#                  "mean_borrower_rate" : 0.05,
+#                  "borrower_rate_standard_deviation" : 0.01,
+#                  "number_lenders" : 10,
+#                  "number_borrowers" : 10}
+#
+#    # aggressive lenders, conservative borrowers
+#    parameters = {"mean_lender_amount" : 1000,
+#                  "lender_amount_standard_deviation" : 100,
+#                  "mean_lender_rate" : 0.05,
+#                  "lender_rate_standard_deviation" : 0.01,
+#                  "mean_borrower_amount" : 1000,
+#                  "borrower_amount_standard_deviation" : 100,
+#                  "mean_borrower_rate" : 0.20,
+#                  "borrower_rate_standard_deviation" : 0.01,
+#                  "number_lenders" : 10,
+#                  "number_borrowers" : 10}
+
+    # homogeneous mean, smaller deviation
+    scenario_generator_parameters = {"mean_lender_amount" : 1000,
+                  "lender_amount_standard_deviation" : 100,
+                  "mean_lender_rate" : 0.05,
+                  "lender_rate_standard_deviation" : 0.01,
+                  "mean_borrower_amount" : 1000,
+                  "borrower_amount_standard_deviation" : 100,
+                  "mean_borrower_rate" : 0.20,
+                  "borrower_rate_standard_deviation" : 0.01,
+                  "number_lenders" : 20,
+                  "number_borrowers" : 20}
+
+    parameters = generate_scenario(scenario_generator_parameters)
 
     # create the generator
     solution_generator = matcher_lib.MatcherSolutionGenerator(parameters)

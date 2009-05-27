@@ -187,7 +187,7 @@ class HillClimbingOptimizer(Optimizer):
         """
         self.reset_termination_conditions()
 
-        debug = False
+        debug = True
 
         # get the generator's parameters
         parameters = self.solution_generator.get_parameters()
