@@ -146,6 +146,85 @@ class MinWeightedAverageOrDefaultConstraint(constraint.Constraint):
 
 class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
+    def get_solution_by_changing_variable(self, domains, constraints, vconstraints, solution, var):
+        forwardcheck = self._forwardcheck
+        assignments = solution[:]
+        
+        # delete the assignment for the variable to be fixed
+        del assignments[var]
+        print "HERE..."
+
+        queue = []
+
+        while True:
+
+            # Mix the Degree and Minimum Remaing Values (MRV) heuristics
+            lst = [(-len(vconstraints[variable]),
+                    len(domains[variable]), variable) for variable in domains]
+            lst.sort()
+            for item in lst:
+                if item[-1] not in assignments:
+                    # Found unassigned variable
+                    variable = item[-1]
+                    values = domains[variable][:]
+                    if forwardcheck:
+                        pushdomains = [domains[x] for x in domains
+                                                   if x not in assignments and
+                                                      x != variable]
+                    else:
+                        pushdomains = None
+                    break
+            else:
+                # No unassigned variables. We've got a solution. Go back
+                # to last variable, if there's one.
+                yield assignments.copy()
+                if not queue:
+                    return
+                variable, values, pushdomains = queue.pop()
+                if pushdomains:
+                    for domain in pushdomains:
+                        domain.popState()
+
+            while True:
+                # We have a variable. Do we have any values left?
+                if not values:
+                    # No. Go back to last variable, if there's one.
+                    del assignments[variable]
+                    while queue:
+                        variable, values, pushdomains = queue.pop()
+                        if pushdomains:
+                            for domain in pushdomains:
+                                domain.popState()
+                        if values:
+                            break
+                        del assignments[variable]
+                    else:
+                        return
+
+                # Got a value. Check it.
+                assignments[variable] = values.pop()
+
+                if pushdomains:
+                    for domain in pushdomains:
+                        domain.pushState()
+
+                for constraint, variables in vconstraints[variable]:
+                    if not constraint(variables, domains, assignments,
+                                      pushdomains):
+                        # Value is not good.
+                        break
+                else:
+                    break
+
+                if pushdomains:
+                    for domain in pushdomains:
+                        domain.popState()
+
+            # Push state before looking for next variable.
+            queue.append((variable, values, pushdomains))
+
+        raise RuntimeError, "Can't happen"
+
     def getNeighborhood(self, solution, domains, constraints, vconstraints, operators):
         """
         Generates the neighborhood of solutions, for a specified solution.
@@ -162,6 +241,12 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
                 if self.isValidSolution(neighbor_solution, domains, vconstraints):
                     neighbor_solutions.append(neighbor_solution)
+                else:
+                    # get an adjacent variable
+                    variables = domains.keys()
+                    neighbor_variable = variables[variables.index(variable) - 1]
+                    # try to fix the solution
+                    self.get_solution_by_changing_variable(domains, constraints, vconstraints, neighbor_solution, neighbor_variable)
 
         return neighbor_solutions
 

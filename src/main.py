@@ -80,8 +80,8 @@ def measured_run1():
                   "borrower_amount_standard_deviation" : 100,
                   "mean_borrower_rate" : 0.20,
                   "borrower_rate_standard_deviation" : 0.01,
-                  "number_lenders" : 20,
-                  "number_borrowers" : 20}
+                  "number_lenders" : 10,
+                  "number_borrowers" : 10}
 
     parameters = generate_scenario(scenario_generator_parameters)
 
@@ -104,7 +104,7 @@ def measured_run1():
     iterations_budget = None
 
     #optimizers = [random_search_optimizer, hill_climbing_optimizer, simulated_annealing_optimizer, particle_swarm_optimizer]
-    optimizers = [hill_climbing_optimizer]
+    optimizers = [hill_climbing_optimizer, simulated_annealing_optimizer]
 
     for optimizer in optimizers:
         run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget, iterations_budget)
