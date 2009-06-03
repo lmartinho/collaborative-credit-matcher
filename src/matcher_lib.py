@@ -149,6 +149,7 @@ class MatcherSolutionGenerator(object):
         return self.parameters
 
     def get_neighborhood(self, solution):
+        print "SolutionGen.get_neighborhood"
         return self.problem.getNeighborhood(solution)
 
     def get_closest_valid_solution(self, candidate_solution):

@@ -80,8 +80,8 @@ def measured_run1():
                   "borrower_amount_standard_deviation" : 100,
                   "mean_borrower_rate" : 0.20,
                   "borrower_rate_standard_deviation" : 0.01,
-                  "number_lenders" : 10,
-                  "number_borrowers" : 10}
+                  "number_lenders" : 5,
+                  "number_borrowers" : 5}
 
     parameters = generate_scenario(scenario_generator_parameters)
 
@@ -100,7 +100,7 @@ def measured_run1():
     simulated_annealing_optimizer = optimization_lib.SimulatedAnnealingOptimizer(solution_generator, solution_evaluator, solution_visualizer)
     particle_swarm_optimizer = optimization_lib.ParticleSwarmOptimizer(solution_generator, solution_evaluator, solution_visualizer)
 
-    time_budget = 10
+    time_budget = 40
     iterations_budget = None
 
     #optimizers = [random_search_optimizer, hill_climbing_optimizer, simulated_annealing_optimizer, particle_swarm_optimizer]

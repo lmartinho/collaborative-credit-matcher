@@ -147,12 +147,19 @@ class MinWeightedAverageOrDefaultConstraint(constraint.Constraint):
 class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
     def get_solution_by_changing_variable(self, domains, constraints, vconstraints, solution, var):
+        iterator = self.get_solution_by_changing_variable_iterator(domains, constraints, vconstraints, solution, var)
+
+        try:
+            return iterator.next()
+        except StopIteration:
+            return None
+
+    def get_solution_by_changing_variable_iterator(self, domains, constraints, vconstraints, solution, var):
         forwardcheck = self._forwardcheck
-        assignments = solution[:]
+        assignments = solution.copy()
         
         # delete the assignment for the variable to be fixed
         del assignments[var]
-        print "HERE..."
 
         queue = []
 
@@ -238,6 +245,9 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
         for variable in domains:
             for operator in operators:
                 neighbor_solution = operator(variable, solution, domains)
+                
+                if not neighbor_solution:
+                    continue
 
                 if self.isValidSolution(neighbor_solution, domains, vconstraints):
                     neighbor_solutions.append(neighbor_solution)
@@ -246,7 +256,10 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
                     variables = domains.keys()
                     neighbor_variable = variables[variables.index(variable) - 1]
                     # try to fix the solution
-                    self.get_solution_by_changing_variable(domains, constraints, vconstraints, neighbor_solution, neighbor_variable)
+                    neighbor_solution = self.get_solution_by_changing_variable(domains, constraints, vconstraints, neighbor_solution, neighbor_variable)
+                    
+                    if neighbor_solution:
+                        neighbor_solutions.append(neighbor_solution)
 
         return neighbor_solutions
 
