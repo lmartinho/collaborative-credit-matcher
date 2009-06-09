@@ -196,7 +196,11 @@ class MatcherSolutionEvaluator(object):
 
             for borrower_id in borrowers:
                 lender_borrower_match_amount_variable = "amount_%s_%s" % (lender_id, borrower_id)
-                lender_borrower_match_amount = solution[lender_borrower_match_amount_variable]
+                print "lender_borrower_match_amount_variable '%s'" % lender_borrower_match_amount_variable
+                try:
+                    lender_borrower_match_amount = solution[lender_borrower_match_amount_variable]
+                except:
+                    raise
                 lender_amount += lender_borrower_match_amount
 
                 lender_borrower_match_rate_variable = "rate_%s_%s" % (lender_id, borrower_id)

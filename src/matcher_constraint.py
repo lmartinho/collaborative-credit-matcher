@@ -146,19 +146,22 @@ class MinWeightedAverageOrDefaultConstraint(constraint.Constraint):
 
 class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
-    def get_solution_by_changing_variable(self, domains, constraints, vconstraints, solution, var):
-        iterator = self.get_solution_by_changing_variable_iterator(domains, constraints, vconstraints, solution, var)
+    def get_solutions_variable(self, domains, constraints, vconstraints, solution, variable):
+        return list(self.get_solution_variable_iterator(domains, constraints, vconstraints, solution, variable))
+
+    def get_solution_variable(self, domains, constraints, vconstraints, solution, variable):
+        iterator = self.get_solution_variable_iterator(domains, constraints, vconstraints, solution, variable)
 
         try:
             return iterator.next()
         except StopIteration:
             return None
 
-    def get_solution_by_changing_variable_iterator(self, domains, constraints, vconstraints, solution, var):
+    def get_solution_variable_iterator(self, domains, constraints, vconstraints, solution, var):
         forwardcheck = self._forwardcheck
         assignments = solution.copy()
-        
-        # delete the assignment for the variable to be fixed
+
+        # delete the assignment for the variable to be re-assigned
         del assignments[var]
 
         queue = []
@@ -243,23 +246,35 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
         neighbor_solutions = []
 
         for variable in domains:
+#            print "variable", variable
             for operator in operators:
+#                print "operator", operator
                 neighbor_solution = operator(variable, solution, domains)
-                
+
+                # if no result is yield by applying the operator, move on
                 if not neighbor_solution:
                     continue
 
+                # if the result is a valid solution
                 if self.isValidSolution(neighbor_solution, domains, vconstraints):
                     neighbor_solutions.append(neighbor_solution)
-                else:
-                    # get an adjacent variable
-                    variables = domains.keys()
-                    neighbor_variable = variables[variables.index(variable) - 1]
-                    # try to fix the solution
-                    neighbor_solution = self.get_solution_by_changing_variable(domains, constraints, vconstraints, neighbor_solution, neighbor_variable)
+                    continue
+
+                # get a list of all the variable names
+                variables = domains.keys()
+
+                # remove the current variable
+                variables.remove(variable)
+
+                # try the find adjacent solutions, by adjusting the value of
+                # all the other variables
+                for adjustment_variable in variables:
+#                    print "adjustment_variable", adjustment_variable
+                    # get the neighbor solution by adjusting the selected variable
+                    adjustment_neighbor_solutions = self.get_solutions_variable(domains, constraints, vconstraints, neighbor_solution, adjustment_variable)
                     
-                    if neighbor_solution:
-                        neighbor_solutions.append(neighbor_solution)
+                    if adjustment_neighbor_solutions:
+                        neighbor_solutions.extend(adjustment_neighbor_solutions)
 
         return neighbor_solutions
 
