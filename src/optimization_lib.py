@@ -187,7 +187,7 @@ class HillClimbingOptimizer(Optimizer):
         """
         self.reset_termination_conditions()
 
-        debug = True
+        debug = False
 
         # get the generator's parameters
         parameters = self.solution_generator.get_parameters()
@@ -265,6 +265,7 @@ class SimulatedAnnealingOptimizer(Optimizer):
             state_neighborhood = self.solution_generator.get_neighborhood(state)
 
             # get a random neighbor
+            # @todo: use random.choice on list
             next_state = self.pick_at_random(state_neighborhood)
 
             # if a new state is not available continue

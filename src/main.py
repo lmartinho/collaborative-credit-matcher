@@ -131,4 +131,5 @@ def run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer
     print "elapsed time: %ss" % optimizer.get_last_run_duration()
     print "--"
 
-measured_run1()
+import cProfile
+cProfile.run("measured_run1()")

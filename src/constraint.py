@@ -452,15 +452,24 @@ class BacktrackingSolver(Solver):
         while True:
 
             # Mix the Degree and Minimum Remaing Values (MRV) heuristics
+            # build a list of (negative of number of constraints on variable, size of the variable domain, variable name) tuples
             lst = [(-len(vconstraints[variable]),
                     len(domains[variable]), variable) for variable in domains]
+
+            # sort the list so that most constrained and smaller domain variables show up first
             lst.sort()
+
+            # for each of the variables, from the easier to assign
             for item in lst:
+                # if the variable is not assigned
                 if item[-1] not in assignments:
                     # Found unassigned variable
                     variable = item[-1]
+                    # get the possible values for the variable
                     values = domains[variable][:]
+                    # if forward checking is enabled
                     if forwardcheck:
+                        # build a list of the possible values for the unassigned variables other than the current variable
                         pushdomains = [domains[x] for x in domains
                                                    if x not in assignments and
                                                       x != variable]
@@ -471,8 +480,10 @@ class BacktrackingSolver(Solver):
                 # No unassigned variables. We've got a solution. Go back
                 # to last variable, if there's one.
                 yield assignments.copy()
+                # if there isn't a queue return
                 if not queue:
                     return
+                # get the first value from the queue
                 variable, values, pushdomains = queue.pop()
                 if pushdomains:
                     for domain in pushdomains:
