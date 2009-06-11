@@ -99,12 +99,14 @@ def measured_run1():
     hill_climbing_optimizer = optimization_lib.HillClimbingOptimizer(solution_generator, solution_evaluator, solution_visualizer)
     simulated_annealing_optimizer = optimization_lib.SimulatedAnnealingOptimizer(solution_generator, solution_evaluator, solution_visualizer)
     particle_swarm_optimizer = optimization_lib.ParticleSwarmOptimizer(solution_generator, solution_evaluator, solution_visualizer)
+    genetic_algorithm_optimizer = optimization_lib.GeneticAlgorithmOptimizer(solution_generator, solution_evaluator, solution_visualizer)
+    genetic_algorithm_optimizer.set_maximum_trait_value(10000)
 
-    time_budget = 40
+    time_budget = 120
     iterations_budget = None
 
     #optimizers = [random_search_optimizer, hill_climbing_optimizer, simulated_annealing_optimizer, particle_swarm_optimizer]
-    optimizers = [hill_climbing_optimizer, simulated_annealing_optimizer]
+    optimizers = [genetic_algorithm_optimizer]
 
     for optimizer in optimizers:
         run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget, iterations_budget)

@@ -26,10 +26,9 @@ class MatcherProblem(constraint.Problem):
 
     def getClosestValidSolution(self, candidate_solution):
         domains, constraints, vconstraints = self._getArgs()
-        operators = self._operators
         if not domains:
             return []
-        return self._solver.getClosestValidSolution(candidate_solution, domains, constraints, vconstraints, operators)
+        return self._solver.getClosestValidSolution(candidate_solution, domains, constraints, vconstraints)
 
 class NoSolutionAvailableException(Exception):
     pass
@@ -308,29 +307,24 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
         # if all the constraints apply, the solution is valid
         return True
 
-    def getClosestValidSolution(self, candidate_solution, domains, constraints, vconstraints, operators):
-        # recursively get the neighborhoods, until a valid solution is obtained
-        neighbor_candidate_solutions = []
+    def getClosestValidSolution(self, solution, domains, constraints, vconstraints):
+        # if solution is available do not proceed
+        if not solution:
+            return None
 
-        for variable in domains:
-            for operator in operators:
-                neighbor_solution = operator(variable, candidate_solution, domains)
+        # if the result is a valid solution
+        if self.isValidSolution(solution, domains, vconstraints):
+            return solution
 
-                # if the neighbor solution is valid, return it
-                if self.isValidSolution(neighbor_solution, domains, vconstraints):
-                    return neighbor_solution
-                # else store it in the neighboring candidate solutions, if it is not None
-                elif neighbor_solution:
-                    neighbor_candidate_solutions.append(neighbor_solution)
+        # fix the neighbor_solution in order to obtain a valid solution
+        variables = domains.keys()
 
-        # if no neighbor was valid enter recursively and seek valid solutions
-        for neighbor_candidate_solution in neighbor_candidate_solutions:
-            # the base recursive step, find the neighbors' valid neighbor solutions
-            neighbor_candidate_solution = self.getClosestValidSolution(neighbor_candidate_solution, domains, constraints, vconstraints, operators)
+        # pick one of the variables to adjust into a valid value
+        adjustment_variable = random.choice(variables)
 
-            # if the neighbor had a valid neighbor solution return it
-            if neighbor_candidate_solution:
-                return neighbor_candidate_solution
+        # get the neighbor solution by adjusting the selected variable
+        adjustment_solution = self.getSolutionReassignVariable(domains, constraints, vconstraints, solution, adjustment_variable)
 
-        # if no valid solution was found, return None
-        return None
+        # if a valid solution is available append it to the neighbor solutions list
+        if adjustment_solution:
+            return adjustment_solution
