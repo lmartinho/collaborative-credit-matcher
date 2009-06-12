@@ -682,7 +682,8 @@ class GeneticAlgorithmOptimizer(Optimizer):
         chromosomes_map = {}
 
         for trait in individual:
-            trait_binary_string = self.create_binary_string(individual[trait])
+            trait_value = individual[trait]
+            trait_binary_string = self.create_binary_string(trait_value)
             chromosomes_map[trait] =  trait_binary_string
 
         return chromosomes_map
@@ -725,7 +726,7 @@ class GeneticAlgorithmOptimizer(Optimizer):
 
         trait_value_binary_string = bin(trait_value)
 
-        bit_characters = trait_value_binary_string.split("0b")[0]
+        bit_characters = trait_value_binary_string.split("0b")[1]
         bit_characters = bit_characters.zfill(self.maximum_chromosome_length - len("0b"))
         binary_string = "0b" + bit_characters
 
