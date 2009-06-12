@@ -649,19 +649,22 @@ class GeneticAlgorithmOptimizer(Optimizer):
             child_a_chromosomes, child_b_chromosomes = self.crossover(individual_a_chromosomes, individual_b_chromosomes)
 
             # apply mutation operators
-            #mutated_child_chromosomes = self.mutate(child_chromosomes)
+            mutated_child_a_chromosomes = self.mutate(child_a_chromosomes)
+            mutated_child_b_chromosomes = self.mutate(child_b_chromosomes)
 
             # convert the genome back to an individual
-            child_a = self.create_individual(child_a_chromosomes)
-            child_b = self.create_individual(child_b_chromosomes)
+            child_a = self.create_individual(mutated_child_a_chromosomes)
+            child_b = self.create_individual(mutated_child_b_chromosomes)
 
             # use the child if valid or get the closest valid solution
             child_a = self.solution_generator.get_closest_valid_solution(child_a)
             child_b = self.solution_generator.get_closest_valid_solution(child_b)
 
             # append the children to the offspring
-            offspring.append(child_a)
-            offspring.append(child_b)
+            if child_a:
+                offspring.append(child_a)
+            if child_b:
+                offspring.append(child_b)
 
         return offspring
 
@@ -708,7 +711,37 @@ class GeneticAlgorithmOptimizer(Optimizer):
         return (child_a_chromosomes, child_a_chromosomes)
 
     def mutate(self, individual_chromosomes):
-        pass
+        """
+        Applies the same mutation criteria to all the chromosomes.
+        """
+
+        for trait in individual_chromosomes:
+            individual_chromosome = individual_chromosomes[trait]
+            mutated_individual_chromosome = self.mutate_chromosome(individual_chromosome)
+            individual_chromosomes[trait] = mutated_individual_chromosome
+
+        return individual_chromosomes
+
+    def mutate_chromosome(self, chromosome):
+        # extension point for addition mutation techniques
+        # just using standard random flip bit for now
+
+        chromosome_length = len(chromosome) - 2
+        flip_bit_index = int(random.random() * chromosome_length + 2)
+
+        # because the string is imutable, convert it to a list
+        chromosome_list = list(chromosome)
+
+        # switch the selected bit in the list
+        if chromosome_list[flip_bit_index] == "0":
+            chromosome_list[flip_bit_index] = "1"
+        else:
+            chromosome_list[flip_bit_index] = "0"
+
+        # join the list elements back into a string again
+        chromosome = "".join(chromosome_list)
+
+        return chromosome
 
     def create_individual(self, individual_chromosomes):
         individual = {}
