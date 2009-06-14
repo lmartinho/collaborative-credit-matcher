@@ -544,6 +544,8 @@ FITNESS = 1
 """
 The position to access the fitness in an individual tuple from an evaluated population.
 """
+class EmptyPopulationError:
+    pass
 
 class GeneticAlgorithmOptimizer(Optimizer):
     """
@@ -586,16 +588,20 @@ class GeneticAlgorithmOptimizer(Optimizer):
             # select best-ranking individuals to reproduce
             fittest_population_evaluated = self.get_fittest(population_evaluated, self.reproduction_sample_size)
 
-            # @todo: debug the crossover
-            # @todo: implement mutation
             # breed new generation through crossover and/or mutation (genetic operations) and give birth to offspring
             offspring = self.breed_generation(fittest_population_evaluated)
+
+            if not offspring:
+                raise EmptyPopulationError
 
             # evaluate the individual fitness of the offspring
             offspring_evaluated = self.evaluate_fitness(offspring)
 
             # replace worst ranked part of population with offspring
             population_evaluated = self.replace_worst(population_evaluated, offspring_evaluated, self.number_replacements)
+
+            if not population_evaluated:
+                raise EmptyPopulationError
 
         # get the best individual from the last generation
         fittest_population_evaluated = self.get_fittest(population_evaluated, 1)
@@ -630,12 +636,14 @@ class GeneticAlgorithmOptimizer(Optimizer):
         # return the top number_fittest individuals
         return population_evaluated[-number_fittest:]
 
-    def breed_generation(self, fittest_population_evaluated):
+    def breed_generation(self, population_evaluated):
         offspring = []
 
-        fittest_population = [individual for individual, score in fittest_population_evaluated]
+        population = [individual for individual, score in population_evaluated]
 
-        couples = list(matcher_utils.grouper(2, fittest_population))
+        # choose a member of the population, to match lonely individuals
+        couple_filler = population[0]
+        couples = list(matcher_utils.grouper(2, population, couple_filler))
 
         # for all pairs of individuals:
         for couple in couples:

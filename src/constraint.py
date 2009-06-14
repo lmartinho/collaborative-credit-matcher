@@ -452,7 +452,10 @@ class BacktrackingSolver(Solver):
         while True:
 
             # Mix the Degree and Minimum Remaing Values (MRV) heuristics
-            # build a list of (negative of number of constraints on variable, size of the variable domain, variable name) tuples
+            # build a list of tuples consisting of
+            # - negative of number of constraints on variable,
+            # - size of the variable domain,
+            # - variable name
             lst = [(-len(vconstraints[variable]),
                     len(domains[variable]), variable) for variable in domains]
 
@@ -469,7 +472,8 @@ class BacktrackingSolver(Solver):
                     values = domains[variable][:]
                     # if forward checking is enabled
                     if forwardcheck:
-                        # build a list of the possible values for the unassigned variables other than the current variable
+                        # build a list of the possible values for the unassigned variable
+                        # other than the current variable
                         pushdomains = [domains[x] for x in domains
                                                    if x not in assignments and
                                                       x != variable]
@@ -483,8 +487,9 @@ class BacktrackingSolver(Solver):
                 # if there isn't a queue return
                 if not queue:
                     return
-                # get the first value from the queue
+                # get the first value from the queue of ???
                 variable, values, pushdomains = queue.pop()
+                # ???
                 if pushdomains:
                     for domain in pushdomains:
                         domain.popState()
@@ -494,6 +499,7 @@ class BacktrackingSolver(Solver):
                 if not values:
                     # No. Go back to last variable, if there's one.
                     del assignments[variable]
+                    # for all the variables in the queue
                     while queue:
                         variable, values, pushdomains = queue.pop()
                         if pushdomains:
