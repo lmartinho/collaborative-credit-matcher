@@ -107,6 +107,7 @@ def measured_run1():
 
     #optimizers = [random_search_optimizer, hill_climbing_optimizer, simulated_annealing_optimizer, particle_swarm_optimizer]
     optimizers = [genetic_algorithm_optimizer]
+    #optimizers = [hill_climbing_optimizer]
 
     for optimizer in optimizers:
         run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget, iterations_budget)

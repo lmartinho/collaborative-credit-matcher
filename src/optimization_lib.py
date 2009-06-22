@@ -57,6 +57,9 @@ class Optimizer(object):
 
         # initialize the iterations budget
         self.iterations_budget = None
+        
+        # initialize the fitness target
+        self.fitness_target = None
 
         # initialize the iterations counter
         self.last_run_iterations = 0
@@ -65,7 +68,7 @@ class Optimizer(object):
         self.last_run_duration = 0
 
     @timed_optimizer_run
-    def optimize(self, time_budget=None):
+    def optimize(self):
         raise NotImplementedError, \
               "%s is an abstract class" % self.__class__.__name__
 
@@ -80,12 +83,16 @@ class Optimizer(object):
         self.last_run_iterations = 0
 
     def termination_conditions_met(self):
-        # if there's a time budget, and it has been exceeded: stop
+        # stop if there is a time budget, and it has been exceeded
         if self.stop_time and time.time() >= self.stop_time:
             return True
 
-        # if there's an iteration budget, and it has been exceeded: stop
+        # stop if there is an iteration budget, and it has been exceeded
         if self.iterations_budget and self.last_run_iterations >= self.iterations_budget:
+            return True
+
+        # stop if there is a fitness target, and it has been exceeded
+        if self.fitness_target and self.last_run_fitness >= self.fitness_target:
             return True
 
         # update the iteration counter
@@ -105,6 +112,12 @@ class Optimizer(object):
 
     def set_iterations_budget(self, iterations_budget):
         self.iterations_budget = iterations_budget
+
+    def get_fitness_target(self):
+        return self.fitness_target
+
+    def set_fitness_target(self, fitness_target):
+        self.fitness_target = fitness_target
 
     def get_last_run_iterations(self):
         """
@@ -320,18 +333,6 @@ class SimulatedAnnealingOptimizer(Optimizer):
         cooling_alpha = 0.9 # (generally in the range 0.8 <= alpha <= 1)
 
         return float(energy) * cooling_alpha
-
-class AntColonyOptimizer(Optimizer):
-    """
-    procedure ACOMetaheuristic
-        ScheduleActivities
-            ConstructAntsSolutions
-            UpdatePheromones
-            DaemonActions
-        end-ScheduleActivites
-    end-procedure
-    """
-    pass
 
 class ParticleSwarmOptimizer(Optimizer):
     """

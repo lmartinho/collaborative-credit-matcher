@@ -452,6 +452,7 @@ class BacktrackingSolver(Solver):
         while True:
 
             # Mix the Degree and Minimum Remaing Values (MRV) heuristics
+
             # build a list of tuples consisting of
             # - negative of number of constraints on variable,
             # - size of the variable domain,
@@ -462,7 +463,8 @@ class BacktrackingSolver(Solver):
             # sort the list so that most constrained and smaller domain variables show up first
             lst.sort()
 
-            # for each of the variables, from the easier to assign
+            # for each of the variables, starting from the easiest to assign
+            # pick the first unassigned variable
             for item in lst:
                 # if the variable is not assigned
                 if item[-1] not in assignments:
@@ -487,7 +489,7 @@ class BacktrackingSolver(Solver):
                 # if there isn't a queue return
                 if not queue:
                     return
-                # get the first value from the queue of ???
+                # get the first value from the queue of variables
                 variable, values, pushdomains = queue.pop()
                 # ???
                 if pushdomains:
@@ -496,6 +498,8 @@ class BacktrackingSolver(Solver):
 
             while True:
                 # We have a variable. Do we have any values left?
+                # if no value is left in the variable domain,
+                # unassign it and find another variable 
                 if not values:
                     # No. Go back to last variable, if there's one.
                     del assignments[variable]
@@ -509,6 +513,7 @@ class BacktrackingSolver(Solver):
                             break
                         del assignments[variable]
                     else:
+                        # the queue is empty: solution space exhausted
                         return
 
                 # Got a value. Check it.
@@ -518,6 +523,7 @@ class BacktrackingSolver(Solver):
                     for domain in pushdomains:
                         domain.pushState()
 
+                # test the result against all the constraints that involve the current variable
                 for constraint, variables in vconstraints[variable]:
                     if not constraint(variables, domains, assignments,
                                       pushdomains):
@@ -531,6 +537,7 @@ class BacktrackingSolver(Solver):
                         domain.popState()
 
             # Push state before looking for next variable.
+            # push the current variable to allow backtracking
             queue.append((variable, values, pushdomains))
 
         raise RuntimeError, "Can't happen"
