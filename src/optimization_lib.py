@@ -57,7 +57,7 @@ class Optimizer(object):
 
         # initialize the iterations budget
         self.iterations_budget = None
-        
+
         # initialize the fitness target
         self.fitness_target = None
 
@@ -432,15 +432,6 @@ class ParticleSwarmOptimizer(Optimizer):
         for particle in particles:
             particle_solutions_local_bests.append(None)
             particle_fitnesses_local_bests.append(None)
-
-        # calculate the time to stop looking for better solutions
-        start_time = time.time()
-        stop_time = None
-        if self.time_budget:
-            stop_time = time.time() + self.time_budget
-
-        # initialize the iteration counter
-        self.last_run_iterations = 0
 
         # loop until convergence
         while not self.termination_conditions_met():

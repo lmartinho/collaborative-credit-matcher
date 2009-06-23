@@ -170,16 +170,16 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
     def getSolutionReassignVariableIterator(self, original_domains, original_constraints, original_vconstraints, original_solution, reassignment_variable):
         print "entering getSolutionReassignVariableIterator for variable", reassignment_variable
         forwardcheck = self._forwardcheck
-        
+
         domains = original_domains.copy()
         constraints = original_constraints[:]
         vconstraints = original_vconstraints.copy()
-        
+
         # initialize the generator with assignments populated with the specified solution
         assignments = original_solution.copy()
         # unassign the specified reassignment_variable, allowing for search to take place
         del assignments[reassignment_variable]
-        
+
         queue = []
 
         # create a history of random backtracking paths
@@ -250,7 +250,7 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
                 # We have a variable. Do we have any values left?
                 # if no value is left in the variable domain,
-                # unassign it and find another variable 
+                # unassign it and find another variable
                 if not values:
                     # No. Go back to last variable, if there's one.
                     del assignments[variable]
@@ -270,7 +270,7 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
                 # Got a value. Check it.
                 assignments[variable] = values.pop()
-                print "assigned ", assignments[variable] 
+                print "assigned ", assignments[variable]
 
                 if pushdomains:
                     for domain in pushdomains:
@@ -310,11 +310,11 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
         existing constraints.
         The set of valid generated solutions is returned as a list.
         """
-        
+
         domains = domains.copy()
         constraints = constraints[:]
         vconstraints = vconstraints.copy()
-        operators = operators[:] 
+        operators = operators[:]
 
         for variable in domains:
             # get a list of all the variable names
@@ -375,7 +375,7 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
         assignments = solution
         lst = domains.keys()
         random.shuffle(lst)
-        
+
         # my check
         if len(assignments.keys()) != len(lst):
             raise InvalidParametersError

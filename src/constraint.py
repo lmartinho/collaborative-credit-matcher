@@ -499,7 +499,7 @@ class BacktrackingSolver(Solver):
             while True:
                 # We have a variable. Do we have any values left?
                 # if no value is left in the variable domain,
-                # unassign it and find another variable 
+                # unassign it and find another variable
                 if not values:
                     # No. Go back to last variable, if there's one.
                     del assignments[variable]
