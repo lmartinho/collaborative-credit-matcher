@@ -23,16 +23,19 @@ class MatcherSolutionGenerator(object):
 
     def set_parameters(self, parameters):
         self.parameters = parameters
-
+        
+        self.initialize_generator()
+        
+    def initialize_generator(self):        
         self.solver = matcher_constraint.NeighborhoodBacktrackingSolver()
 
         self.problem = matcher_constraint.MatcherProblem(self.solver, [self.increment_variable, self.decrement_variable])
 
         self.create_variables()
 
-        # @TODO: major bug: not restricting the amounts correctly
         self.create_constraints()
 
+        # @TODO: Shouldn't this be done Just In Time?
         self.solution_iterator = self.problem.getSolutionIter()
 
     def create_variables(self):

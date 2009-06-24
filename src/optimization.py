@@ -478,6 +478,7 @@ class ParticleSwarmOptimizer(Optimizer):
                     particle_candidate_solution[variable] = variable_value + particle_velocities[particle][variable]
 
                 # get the closest valid solution
+                # @todo: start using the generator's get closest valid solution
                 particle_next_solution = self.get_closest_valid_solution(particle_candidate_solution)
 
                 # update the particle solution
@@ -488,17 +489,6 @@ class ParticleSwarmOptimizer(Optimizer):
                     print "Particle ", particle
                     parameters = self.solution_generator.get_parameters()
                     self.solution_visualizer.display_solution(parameters, particle_next_solution)
-
-            # if there's a time budget, and it has been exceeded: stop
-            if stop_time and time.time() >= stop_time:
-                break
-
-            # if there's an iteration budget, and it has been exceeded: stop
-            if self.iterations_budget and self.last_run_iterations >= self.iterations_budget:
-                break
-
-            # update the iteration counter
-            self.last_run_iterations += 1
 
         return global_best_solution
 
@@ -663,8 +653,13 @@ class GeneticAlgorithmOptimizer(Optimizer):
             # append the children to the offspring
             if child_a:
                 offspring.append(child_a)
+            else:
+                offspring.append(individual_a)
+
             if child_b:
                 offspring.append(child_b)
+            else:
+                offspring.append(individual_b)
 
         return offspring
 

@@ -1,8 +1,8 @@
 import time
 import random
 
-import matcher_lib
-import optimization_lib
+import matcher_optimization
+import optimization
 
 def generate_scenario(parameters):
     scenario = {}
@@ -86,20 +86,20 @@ def measured_run1():
     parameters = generate_scenario(scenario_generator_parameters)
 
     # create the generator
-    solution_generator = matcher_lib.MatcherSolutionGenerator(parameters)
+    solution_generator = matcher_optimization.MatcherSolutionGenerator(parameters)
 
     # create the evaluator, using the tight margin utility function
-    solution_evaluator = matcher_lib.MatcherSolutionEvaluator(matcher_lib.MatcherSolutionEvaluator.tight_margin_utility)
+    solution_evaluator = matcher_optimization.MatcherSolutionEvaluator(matcher_optimization.MatcherSolutionEvaluator.tight_margin_utility)
 
     # create the visualizer
-    solution_visualizer = matcher_lib.MatcherSolutionVisualizer()
+    solution_visualizer = matcher_optimization.MatcherSolutionVisualizer()
 
     # create the coordinator, injecting the created objects
-    random_search_optimizer = optimization_lib.RandomSearchOptimizer(solution_generator, solution_evaluator, solution_visualizer)
-    hill_climbing_optimizer = optimization_lib.HillClimbingOptimizer(solution_generator, solution_evaluator, solution_visualizer)
-    simulated_annealing_optimizer = optimization_lib.SimulatedAnnealingOptimizer(solution_generator, solution_evaluator, solution_visualizer)
-    particle_swarm_optimizer = optimization_lib.ParticleSwarmOptimizer(solution_generator, solution_evaluator, solution_visualizer)
-    genetic_algorithm_optimizer = optimization_lib.GeneticAlgorithmOptimizer(solution_generator, solution_evaluator, solution_visualizer)
+    random_search_optimizer = optimization.RandomSearchOptimizer(solution_generator, solution_evaluator, solution_visualizer)
+    hill_climbing_optimizer = optimization.HillClimbingOptimizer(solution_generator, solution_evaluator, solution_visualizer)
+    simulated_annealing_optimizer = optimization.SimulatedAnnealingOptimizer(solution_generator, solution_evaluator, solution_visualizer)
+    particle_swarm_optimizer = optimization.ParticleSwarmOptimizer(solution_generator, solution_evaluator, solution_visualizer)
+    genetic_algorithm_optimizer = optimization.GeneticAlgorithmOptimizer(solution_generator, solution_evaluator, solution_visualizer)
     genetic_algorithm_optimizer.set_maximum_trait_value(10000)
 
     time_budget = 40
