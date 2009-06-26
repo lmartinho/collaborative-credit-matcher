@@ -21,10 +21,9 @@ class MatcherProblem(constraint.Problem):
 
     def getClosestValidSolution(self, candidate_solution):
         domains, constraints, vconstraints = self._getArgs()
-        operators = self._operators
         if not domains:
             return None
-        return self._solver.getClosestValidSolution(candidate_solution, domains, constraints, vconstraints, operators)
+        return self._solver.getClosestValidSolution(candidate_solution, domains, constraints, vconstraints)
 
     def getVariables(self):
         return self._variables.keys()
@@ -172,20 +171,6 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
         return list(self.getNeighborhoodIterator(solution, domains, constraints, vconstraints, operators))
 
-    def getClosestValidSolution(self, solution, domains, constraints, vconstraints, operators):
-        try:
-            # get the result a single call to the getNeighborhoodIterator function
-            closest_valid_solution = self.getNeighborhoodIterator(solution, domains, constraints, vconstraints, operators).next()
-
-            if closest_valid_solution and not self.isValidSolution(closest_valid_solution, domains, vconstraints):
-                raise InvalidSolutionError
-
-        except StopIteration:
-            closest_valid_solution = None
-
-        # return the closest valid solution obtained
-        return closest_valid_solution
-
     def getNeighborhoodIterator(self, solution, domains, constraints, vconstraints, operators):
         """
         Generates the neighborhood of solutions, for a specified solution.
@@ -221,8 +206,8 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
                 if not neighbor_solution:
                     continue
 
-                # if the result is a valid solution
-                if self.isValidSolution(neighbor_solution, domains, vconstraints):
+                # if the result is a valid solution, checks only the constraints of the specified variable
+                if self.isValidSolutionVariable(neighbor_solution, domains, vconstraints, variable):
                     yield neighbor_solution
                     continue
 
@@ -233,6 +218,7 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
                 # get the neighbor solution by adjusting the selected variable
                 adjustment_neighbor_solution = self.getSolutionReassignVariable(domains, constraints, vconstraints, neighbor_solution, adjustment_variable)
+                #adjustment_neighbor_solution = self.getClosestValidSolution(neighbor_solution, domains, constraints, vconstraints)
 
                 # if a valid solution is available append it to the neighbor solutions list
                 if adjustment_neighbor_solution:
@@ -242,6 +228,149 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
                     continue
 
     def getSolutionReassignVariable(self, domains, constraints, vconstraints, solution, variable):
+        # retrieve the variable's domain
+        variable_domain = domains[variable][:]
+
+        # exclude the original assignment from the variable's domain
+        original_assignment = solution[variable]
+        if original_assignment in variable_domain:
+            variable_domain.remove(original_assignment)
+
+        assignments = solution.copy()
+        
+        # for all values in the variable's domain
+        for value in variable_domain:
+            assignments[variable] = value
+            
+            # test if the value makes a valid solution, by checking all the constraints
+            if self.isValidSolution(assignments, domains, vconstraints):
+                # if valid return the solution
+                return assignments
+
+        # no solution found
+        return None
+    
+    def getClosestValidSolution(self, solution, domains, constraints, vconstraints):
+        if not solution:
+            return None
+
+        assignments = solution.copy()
+        lst = domains.keys()
+        random.shuffle(lst)
+
+        # my check
+        if len(assignments.keys()) != len(lst):
+            raise InvalidParametersError
+
+        if len(assignments.keys()) != len(vconstraints.keys()):
+            raise InvalidParametersError
+
+        for variable in lst:
+            # check if variable is not in conflict
+            for constraint, variables in vconstraints[variable]:
+                # if a single constraint is broken, the variable is in violation
+                if not constraint(variables, domains, assignments):
+                    # unassign the variable
+                    del assignments[variable]
+                    # this variable has been processed
+                    break
+
+        # start the normal assignment process
+        return self.getAssignmentsSolutionIter(assignments, domains, constraints, vconstraints).next()
+
+    def getAssignmentsSolutionIter(self, assignments, domains, constraints, vconstraints):
+        forwardcheck = self._forwardcheck
+
+        queue = self.createBacktrackingQueue(assignments, domains, constraints)
+
+        while True:
+
+            # Mix the Degree and Minimum Remaing Values (MRV) heuristics
+            lst = [(-len(vconstraints[variable]),
+                    len(domains[variable]), variable) for variable in domains]
+            lst.sort()
+            for item in lst:
+                if item[-1] not in assignments:
+                    # Found unassigned variable
+                    variable = item[-1]
+                    values = domains[variable][:]
+                    if forwardcheck:
+                        pushdomains = [domains[x] for x in domains
+                                                   if x not in assignments and
+                                                      x != variable]
+                    else:
+                        pushdomains = None
+                    break
+            else:
+                # No unassigned variables. We've got a solution. Go back
+                # to last variable, if there's one.
+                yield assignments.copy()
+                if not queue:
+                    return
+                variable, values, pushdomains = queue.pop()
+                if pushdomains:
+                    for domain in pushdomains:
+                        domain.popState()
+
+            while True:
+                # We have a variable. Do we have any values left?
+                if not values:
+                    # No. Go back to last variable, if there's one.
+                    del assignments[variable]
+                    while queue:
+                        variable, values, pushdomains = queue.pop()
+                        if pushdomains:
+                            for domain in pushdomains:
+                                domain.popState()
+                        if values:
+                            break
+                        del assignments[variable]
+                    else:
+                        return
+
+                # Got a value. Check it.
+                assignments[variable] = values.pop()
+
+                if pushdomains:
+                    for domain in pushdomains:
+                        domain.pushState()
+
+                for constraint, variables in vconstraints[variable]:
+                    if not constraint(variables, domains, assignments,
+                                      pushdomains):
+                        # Value is not good.
+                        break
+                else:
+                    break
+
+                if pushdomains:
+                    for domain in pushdomains:
+                        domain.popState()
+
+            # Push state before looking for next variable.
+            queue.append((variable, values, pushdomains))
+
+        raise RuntimeError, "Can't happen"
+
+    def createBacktrackingQueue(self, assignments, domains, constraints):
+        queue = []
+        unassigned_variables = [variable for variable in domains if variable not in assignments]
+        forwardcheck = self._forwardcheck
+        
+        for unassigned_variable in unassigned_variables:
+            variable = unassigned_variable
+            values = domains[variable][:]
+            if forwardcheck:
+                pushdomains = [domains[x] for x in unassigned_variables if x != variable]
+            else:
+                pushdomains = None
+            break
+
+            queue.append((variable, values, pushdomains))
+
+        return queue
+
+    def getSolutionReassignVariable2(self, domains, constraints, vconstraints, solution, variable):
         iterator = self.getSolutionReassignVariableIterator(domains, constraints, vconstraints, solution, variable)
 
         try:
@@ -250,30 +379,38 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
             return None
 
     # @todo: stop this from going into a loop, i think
-    def getSolutionReassignVariableIterator(self, domains, constraints, vconstraints, solution, reassignment_variable):
+    def getSolutionReassignVariableIterator(self, original_domains, constraints, vconstraints, solution, reassignment_variable):
+        """
+        Re-assigns only the specified variable, to create a valid solution.
+        Removes the initially assigned value for the re-assignment variable, 
+        from its domain to avoid returning the original solution.
+        Check all the constraints on a potential solution, since the original solution might not be valid.
+        """
+
         logging.debug("entering getSolutionReassignVariableIterator for variable %s" % reassignment_variable)
 
         forwardcheck = self._forwardcheck
 
         # initialize the generator with assignments populated with the specified solution
         assignments = solution.copy()
+        
         # remove the current assignment for the specified reassignment_variable, allowing for search to take place
+        original_assignment = assignments[reassignment_variable]
         del assignments[reassignment_variable]
+        
+        # hide the current assignment from the variable's domain, to avoid cycling
+        domains = original_domains.copy()
+        do = domains[reassignment_variable]
+        try:
+            domains[reassignment_variable].hideValue(original_assignment)
+        except:
+            pass
 
+        # initialize the backtracking queue
         queue = []
-
+        
         # debug device
         variable_iteration_counter = {}
-
-        # create a history of random backtracking paths
-        # using all the variables except the reassignment one
-        for variable in assignments.keys():
-            # get the possible values for the variable
-            values = domains[variable][:]
-            # if forward checking is enabled
-            pushdomains = None
-            queue.append((variable, values, pushdomains))
-        logging.debug("pushed %d elements onto the queue: " % len(queue))
 
         while True:
             logging.debug("starting the master loop")
@@ -332,8 +469,6 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
             while True:
                 variable_iteration_counter[variable] = variable_iteration_counter.get(variable, 0) + 1
-#                if variable_iteration_counter.get(variable, 0) > 1000:
-#                    logging.debug("%d iterations for variable: %s, total: %d" % (variable_iteration_counter.get(variable, 0), variable, len(domains[variable])))
 
                 # We have a variable. Do we have any values left?
                 # if no value is left in the variable domain,
@@ -367,18 +502,19 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
                         domain.pushState()
 
                 # test the result against all the constraints that involve the current variable
-#                logging.debug("testing constraints")
                 for constraint, variables in vconstraints[variable]:
                     if not constraint(variables, domains, assignments,
                                       pushdomains):
                         # Value is not good.
- #                       logging.debug("value is not good")
                         break
                 else:
-                    logging.debug("all constraints hold, breaking")
-                    logging.debug("%d iterations for variable: %s, total: %d" % (variable_iteration_counter.get(variable, 0), variable, len(domains[variable])))
-                    break
-
+                    # test the result again all the constraints
+                    # todo: shouldn't have to retest the constraints on the current variable
+                    if(self.isValidSolution(solution, domains, vconstraints)):
+                        logging.debug("all constraints hold, breaking")
+                        logging.debug("%d iterations for variable: %s, total: %d" % (variable_iteration_counter.get(variable, 0), variable, len(domains[variable])))
+                        break
+                
                 if pushdomains:
                     for domain in pushdomains:
                         domain.popState()
@@ -398,24 +534,29 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
         if not solution:
             return False
 
-        assignments = solution
         lst = domains.keys()
         random.shuffle(lst)
 
         # my check
-        if len(assignments.keys()) != len(lst):
+        if len(solution.keys()) != len(lst):
             raise InvalidParametersError
 
-        if len(assignments.keys()) != len(vconstraints.keys()):
+        if len(solution.keys()) != len(vconstraints.keys()):
             raise InvalidParametersError
 
 
         for variable in lst:
-            # check if variable is not in conflict
-            for constraint, variables in vconstraints[variable]:
-                # if a single constraint is broken, the solution is invalid
-                if not constraint(variables, domains, assignments):
-                    return False
+            if not self.isValidSolutionVariable(solution, domains, vconstraints, variable):
+                return False
 
         # if all the constraints apply, the solution is valid
+        return True
+    
+    def isValidSolutionVariable(self, solution, domains, vconstraints, variable):
+        # check if variable is not in conflict
+        for constraint, variables in vconstraints[variable]:
+            # if a single constraint is broken, the solution is invalid
+            if not constraint(variables, domains, solution):
+                return False
+
         return True

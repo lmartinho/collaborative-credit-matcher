@@ -451,7 +451,7 @@ class BacktrackingSolver(Solver):
         queue = []
 
         while True:
-            logging.debug("starting the master loop")
+            #logging.debug("starting the master loop")
             # Mix the Degree and Minimum Remaing Values (MRV) heuristics
 
             # build a list of tuples consisting of
@@ -470,7 +470,7 @@ class BacktrackingSolver(Solver):
                 # if the variable is not assigned
                 if item[-1] not in assignments:
                     # Found unassigned variable
-                    logging.debug("found unassigned variable: %s" % item[-1])
+                    #logging.debug("found unassigned variable: %s" % item[-1])
                     variable = item[-1]
                     # get the possible values for the variable
                     values = domains[variable][:]
@@ -486,18 +486,18 @@ class BacktrackingSolver(Solver):
             else:
                 # No unassigned variables. We've got a solution. Go back
                 # to last variable, if there's one.
-                logging.debug("yielding an actual assignments: %s" % assignments)
+                #logging.debug("yielding an actual assignments: %s" % assignments)
                 yield assignments.copy()
 
                 # backtrack requested, try to go back to the last variable
                 # if there isn't a queue return
                 if not queue:
-                    logging.debug("no queue, returning...")
+                    #logging.debug("no queue, returning...")
                     return
 
                 # get the first value from the queue of variables
                 variable, values, pushdomains = queue.pop()
-                logging.debug("backtrack requested, picked variable: %s from queue" % variable)
+                #logging.debug("backtrack requested, picked variable: %s from queue" % variable)
                 # ???
                 if pushdomains:
                     for domain in pushdomains:
@@ -509,7 +509,7 @@ class BacktrackingSolver(Solver):
                 # unassign it and find another variable
                 if not values:
                     # No. Go back to last variable, if there's one.
-                    logging.debug("1 deleting assignments for variable: %s" % variable)
+                    #logging.debug("1 deleting assignments for variable: %s" % variable)
                     del assignments[variable]
                     # for all the variables in the queue
                     while queue:
@@ -519,11 +519,11 @@ class BacktrackingSolver(Solver):
                                 domain.popState()
                         if values:
                             break
-                        logging.debug("2 deleting assignments for variable: %s" % variable)
+                        #logging.debug("2 deleting assignments for variable: %s" % variable)
                         del assignments[variable]
                     else:
                         # the queue is empty: solution space exhausted
-                        logging.debug("the queue is empty: solution space exhausted")
+                        #logging.debug("the queue is empty: solution space exhausted")
                         return
 
                 # Got a value. Check it.
@@ -541,7 +541,7 @@ class BacktrackingSolver(Solver):
                         # Value is not good.
                         break
                 else:
-                    logging.debug("all constraints hold, breaking")
+                    #logging.debug("all constraints hold, breaking")
                     break
 
                 if pushdomains:
@@ -550,7 +550,7 @@ class BacktrackingSolver(Solver):
 
             # Push state before looking for next variable.
             # push the current variable to allow backtracking
-            logging.debug("appending variable %s to queue len: %d" % (variable, len(queue)))
+            #logging.debug("appending variable %s to queue len: %d" % (variable, len(queue)))
             queue.append((variable, values, pushdomains))
 
         raise RuntimeError, "Can't happen"
