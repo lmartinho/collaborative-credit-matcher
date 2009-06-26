@@ -1,5 +1,6 @@
 import time
 import random
+import logging
 
 import matcher_optimization
 import optimization
@@ -113,7 +114,7 @@ def measured_run1():
         run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget, iterations_budget)
 
 def run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget=None, iterations_budget=None):
-    print optimizer
+    logging.info("Running %s" % optimizer)
 
     if time_budget:
         optimizer.set_time_budget(time_budget)
@@ -130,10 +131,16 @@ def run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer
     solution_visualizer.display(parameters, solution, utility)
 
     # display the execution stats from the optimizer
-    print "iterations: %s" % optimizer.get_last_run_iterations()
-    print "elapsed time: %ss" % optimizer.get_last_run_duration()
-    print "--"
+    logging.info("iterations: %s" % optimizer.get_last_run_iterations())
+    logging.info("elapsed time: %ss" % optimizer.get_last_run_duration())
+    logging.info("--")
 
+
+#LOG_FILENAME = '/tmp/logging_example.out'
+#logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG,)
+FORMAT = "%(asctime)-15s %(message)s"
+logging.basicConfig(format=FORMAT, level=logging.DEBUG)
+logging.debug('This message should go to the log file')
 measured_run1()
 #import cProfile
 #cProfile.run("measured_run1()")

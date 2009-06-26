@@ -1,5 +1,6 @@
 import constraint
 import itertools
+import logging
 import statlib.stats
 import time
 
@@ -23,10 +24,10 @@ class MatcherSolutionGenerator(object):
 
     def set_parameters(self, parameters):
         self.parameters = parameters
-        
+
         self.initialize_generator()
-        
-    def initialize_generator(self):        
+
+    def initialize_generator(self):
         self.solver = matcher_constraint.NeighborhoodBacktrackingSolver()
 
         self.problem = matcher_constraint.MatcherProblem(self.solver, [self.increment_variable, self.decrement_variable])
@@ -39,6 +40,7 @@ class MatcherSolutionGenerator(object):
         self.solution_iterator = self.problem.getSolutionIter()
 
     def create_variables(self):
+        logging.debug("creating variables")
         lenders = self.parameters["lenders"]
         borrowers = self.parameters["borrowers"]
 
@@ -59,6 +61,7 @@ class MatcherSolutionGenerator(object):
                 self.problem.addVariable(amount_variable, lender_amount_range)
 
     def create_constraints(self):
+        logging.debug("creating constraints")
         lenders = self.parameters["lenders"]
         borrowers = self.parameters["borrowers"]
 
@@ -152,7 +155,6 @@ class MatcherSolutionGenerator(object):
         return self.parameters
 
     def get_neighborhood(self, solution):
-        print "SolutionGen.get_neighborhood"
         return self.problem.getNeighborhood(solution)
 
     def get_closest_valid_solution(self, candidate_solution):

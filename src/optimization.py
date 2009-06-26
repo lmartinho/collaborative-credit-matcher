@@ -1,6 +1,7 @@
 import math
 import random
 import time
+import logging
 
 import matcher_utils
 
@@ -334,6 +335,273 @@ class SimulatedAnnealingOptimizer(Optimizer):
 
         return float(energy) * cooling_alpha
 
+FITNESS = 1
+"""
+The position to access the fitness in an individual tuple from an evaluated population.
+"""
+class EmptyPopulationError:
+    pass
+
+class GeneticAlgorithmOptimizer(Optimizer):
+    """
+    1. Choose initial population
+    2. Evaluate the fitness of each individual in the population
+    3. Repeat until termination: (time limit or sufficient fitness achieved)
+        1. Select best-ranking individuals to reproduce
+        2. Breed new generation through crossover and/or mutation (genetic operations) and give birth to offspring
+        3. Evaluate the individual fitnesses of the offspring
+        4. Replace worst ranked part of population with offspring
+    """
+
+    def __init__(self, solution_generator, solution_evaluator, solution_visualizer=None):
+        Optimizer.__init__(self, solution_generator, solution_evaluator, solution_visualizer)
+
+        self.initial_population_size = 10
+        self.reproduction_sample_size = 4
+        self.population_size = 10
+        self.number_replacements = 4
+        self.maximum_trait_value = None
+
+    @timed_optimizer_run
+    def optimize(self):
+        self.reset_termination_conditions()
+
+        # get the generator's parameters
+        self.generator_parameters = self.solution_generator.get_parameters()
+
+        # choose initial population
+        logging.debug("generating initial population")
+        initial_population = self.create_population()
+
+        # evaluate the fitness of each individual in the population
+        logging.debug("evaluating initial population")
+        population_evaluated = self.evaluate_fitness(initial_population)
+
+        # the solution generator is the solution iterator method of the constraint problem object
+        best_solution = None
+
+        while not self.termination_conditions_met():
+            logging.info("iteration %s" % self.last_run_iterations)
+
+            # select best-ranking individuals to reproduce
+            logging.debug("selecting best-ranking individuals to reproduce")
+            fittest_population_evaluated = self.get_fittest(population_evaluated, self.reproduction_sample_size)
+
+            # breed new generation through crossover and/or mutation (genetic operations) and give birth to offspring
+            logging.debug("breeding next generation")
+            offspring = self.breed_generation(fittest_population_evaluated)
+
+            if not offspring:
+                raise EmptyPopulationError
+
+            # evaluate the individual fitness of the offspring
+            logging.debug("evaluating offspring")
+            offspring_evaluated = self.evaluate_fitness(offspring)
+
+            # replace worst ranked part of population with offspring
+            logging.debug("replacing worst members of the population")
+            population_evaluated = self.replace_worst(population_evaluated, offspring_evaluated, self.number_replacements)
+
+            if not population_evaluated:
+                raise EmptyPopulationError
+
+        # get the best individual from the last generation
+        fittest_population_evaluated = self.get_fittest(population_evaluated, 1)
+
+        # get the solution from the individual-fitness tuple list
+        best_solution, best_score = fittest_population_evaluated[0]
+
+        if not best_solution:
+            raise matcher_constraint.NoSolutionAvailableException
+
+        return best_solution
+
+    def create_population(self):
+        population = []
+
+        for i in range(self.initial_population_size):
+            individual = self.solution_generator.get_solution()
+            population.append(individual)
+
+        return population
+
+    def evaluate_fitness(self, population):
+        # create a list of (individual, fitness) tuples
+        population_fitness = [(individual, self.evaluate(individual)) for individual in population]
+
+        # return the list of population with respective fitness
+        return population_fitness
+
+    def get_fittest(self, population_evaluated, number_fittest):
+        population_evaluated.sort(self.compare_individuals)
+
+        # return the top number_fittest individuals
+        return population_evaluated[-number_fittest:]
+
+    def breed_generation(self, population_evaluated):
+        offspring = []
+
+        population = [individual for individual, score in population_evaluated]
+
+        # choose a member of the population, to match lonely individuals
+        couple_filler = population[0]
+        couples = list(matcher_utils.grouper(2, population, couple_filler))
+
+        # for all pairs of individuals:
+        for couple in couples:
+            individual_a, individual_b = couple
+
+            # get the individual genome for each
+            individual_a_chromosomes = self.create_chromosomes(individual_a)
+            individual_b_chromosomes = self.create_chromosomes(individual_b)
+
+            # apply crossover operator
+            child_a_chromosomes, child_b_chromosomes = self.crossover(individual_a_chromosomes, individual_b_chromosomes)
+
+            # apply mutation operators
+            mutated_child_a_chromosomes = self.mutate(child_a_chromosomes)
+            mutated_child_b_chromosomes = self.mutate(child_b_chromosomes)
+
+            # convert the genome back to an individual
+            child_a = self.create_individual(mutated_child_a_chromosomes)
+            child_b = self.create_individual(mutated_child_b_chromosomes)
+
+            # use the child if valid or get the closest valid solution
+            logging.debug("getting the closest valid solution to child A")
+            child_a = self.solution_generator.get_closest_valid_solution(child_a)
+            logging.debug("getting the closest valid solution to child B")
+            child_b = self.solution_generator.get_closest_valid_solution(child_b)
+
+            # append the children to the offspring
+            if child_a:
+                offspring.append(child_a)
+            else:
+                offspring.append(individual_a)
+
+            if child_b:
+                offspring.append(child_b)
+            else:
+                offspring.append(individual_b)
+
+        return offspring
+
+    def replace_worst(self, population_evaluated, offspring_evaluated, number_replacements):
+        new_population = []
+
+        population_evaluated.sort(self.compare_individuals)
+        offspring_evaluated.sort(self.compare_individuals)
+
+        top_offspring = offspring_evaluated[-self.number_replacements:]
+        top_population = population_evaluated[self.number_replacements:0]
+
+        new_population = top_offspring + top_population
+
+        return new_population
+
+    def create_chromosomes(self, individual):
+        chromosomes_map = {}
+
+        for trait in individual:
+            trait_value = individual[trait]
+            trait_binary_string = self.create_binary_string(trait_value)
+            chromosomes_map[trait] =  trait_binary_string
+
+        return chromosomes_map
+
+    def crossover(self, individual_a_chromosomes, individual_b_chromosomes):
+        child_a_chromosomes = {}
+        child_b_chromosomes = {}
+
+        for trait in individual_a_chromosomes:
+            individual_a_chromosome = individual_a_chromosomes[trait]
+            individual_b_chromosome = individual_b_chromosomes[trait]
+
+            # crossover by the half
+            crossover_point = int(len(individual_a_chromosome) / 2)
+
+            child_a_chromosome = individual_a_chromosome[0:crossover_point] + individual_b_chromosome[crossover_point:]
+            child_b_chromosome = individual_b_chromosome[0:crossover_point] + individual_a_chromosome[crossover_point:]
+
+            child_a_chromosomes[trait] = child_a_chromosome
+            child_b_chromosomes[trait] = child_b_chromosome
+
+        return (child_a_chromosomes, child_a_chromosomes)
+
+    def mutate(self, individual_chromosomes):
+        """
+        Applies the same mutation criteria to all the chromosomes.
+        """
+
+        for trait in individual_chromosomes:
+            individual_chromosome = individual_chromosomes[trait]
+            mutated_individual_chromosome = self.mutate_chromosome(individual_chromosome)
+            individual_chromosomes[trait] = mutated_individual_chromosome
+
+        return individual_chromosomes
+
+    def mutate_chromosome(self, chromosome):
+        # extension point for addition mutation techniques
+        # just using standard random flip bit for now
+
+        chromosome_length = len(chromosome) - 2
+        flip_bit_index = int(random.random() * chromosome_length + 2)
+
+        # because the string is imutable, convert it to a list
+        chromosome_list = list(chromosome)
+
+        # switch the selected bit in the list
+        if chromosome_list[flip_bit_index] == "0":
+            chromosome_list[flip_bit_index] = "1"
+        else:
+            chromosome_list[flip_bit_index] = "0"
+
+        # join the list elements back into a string again
+        chromosome = "".join(chromosome_list)
+
+        return chromosome
+
+    def create_individual(self, individual_chromosomes):
+        individual = {}
+
+        for trait in individual_chromosomes:
+            trait_value = int(individual_chromosomes[trait], 2)
+            individual[trait] = trait_value
+
+        return individual
+
+    def create_binary_string(self, trait_value):
+        """
+        Returns a binary string, filled to match the standard number of bits.
+        """
+
+        trait_value_binary_string = bin(trait_value)
+
+        bit_characters = trait_value_binary_string.split("0b")[1]
+        bit_characters = bit_characters.zfill(self.maximum_chromosome_length - len("0b"))
+        binary_string = "0b" + bit_characters
+
+        return binary_string
+
+    # @todo: create getters and setters for the optimizer parameters
+    def evaluate(self, individual):
+        individual_utility = self.solution_evaluator.evaluate(self.generator_parameters, individual)
+        individual_score = individual_utility["score"]
+
+        return individual_score
+
+    def compare_individuals(self, individual_a,individual_b):
+        individual_a_fitness = individual_a[FITNESS]
+        individual_b_fitness = individual_b[FITNESS]
+
+        return int(individual_a_fitness - individual_b_fitness)
+
+    def set_maximum_trait_value(self, maximum_trait_value):
+        maximum_trait_value_binary_string = bin(maximum_trait_value)
+        maximum_binary_string_length = len(maximum_trait_value_binary_string)
+
+        self.maximum_trait_value = maximum_trait_value
+        self.maximum_chromosome_length = maximum_binary_string_length
+
 class ParticleSwarmOptimizer(Optimizer):
     """
     // Initialize the particle positions and their velocities
@@ -520,262 +788,3 @@ class ParticleSwarmOptimizer(Optimizer):
         # @TODO: missing constraints for development purposes
         #return self.solution_generator.get_closest_valid_solution(particle_candidate_solution)
         return particle_candidate_solution
-
-
-FITNESS = 1
-"""
-The position to access the fitness in an individual tuple from an evaluated population.
-"""
-class EmptyPopulationError:
-    pass
-
-class GeneticAlgorithmOptimizer(Optimizer):
-    """
-    1. Choose initial population
-    2. Evaluate the fitness of each individual in the population
-    3. Repeat until termination: (time limit or sufficient fitness achieved)
-        1. Select best-ranking individuals to reproduce
-        2. Breed new generation through crossover and/or mutation (genetic operations) and give birth to offspring
-        3. Evaluate the individual fitnesses of the offspring
-        4. Replace worst ranked part of population with offspring
-    """
-
-    def __init__(self, solution_generator, solution_evaluator, solution_visualizer=None):
-        Optimizer.__init__(self, solution_generator, solution_evaluator, solution_visualizer)
-
-        self.initial_population_size = 10
-        self.reproduction_sample_size = 4
-        self.population_size = 10
-        self.number_replacements = 4
-        self.maximum_trait_value = None
-
-    @timed_optimizer_run
-    def optimize(self):
-        self.reset_termination_conditions()
-
-        # get the generator's parameters
-        self.generator_parameters = self.solution_generator.get_parameters()
-
-        # choose initial population
-        initial_population = self.create_population()
-
-        # evaluate the fitness of each individual in the population
-        population_evaluated = self.evaluate_fitness(initial_population)
-
-        # the solution generator is the solution iterator method of the constraint problem object
-        best_solution = None
-
-        while not self.termination_conditions_met():
-
-            # select best-ranking individuals to reproduce
-            fittest_population_evaluated = self.get_fittest(population_evaluated, self.reproduction_sample_size)
-
-            # breed new generation through crossover and/or mutation (genetic operations) and give birth to offspring
-            offspring = self.breed_generation(fittest_population_evaluated)
-
-            if not offspring:
-                raise EmptyPopulationError
-
-            # evaluate the individual fitness of the offspring
-            offspring_evaluated = self.evaluate_fitness(offspring)
-
-            # replace worst ranked part of population with offspring
-            population_evaluated = self.replace_worst(population_evaluated, offspring_evaluated, self.number_replacements)
-
-            if not population_evaluated:
-                raise EmptyPopulationError
-
-        # get the best individual from the last generation
-        fittest_population_evaluated = self.get_fittest(population_evaluated, 1)
-
-        # get the solution from the individual-fitness tuple list
-        best_solution, best_score = fittest_population_evaluated[0]
-
-        if not best_solution:
-            raise matcher_constraint.NoSolutionAvailableException
-
-        return best_solution
-
-    def create_population(self):
-        population = []
-
-        for i in range(self.initial_population_size):
-            individual = self.solution_generator.get_solution()
-            population.append(individual)
-
-        return population
-
-    def evaluate_fitness(self, population):
-        # create a list of (individual, fitness) tuples
-        population_fitness = [(individual, self.evaluate(individual)) for individual in population]
-
-        # return the list of population with respective fitness
-        return population_fitness
-
-    def get_fittest(self, population_evaluated, number_fittest):
-        population_evaluated.sort(self.compare_individuals)
-
-        # return the top number_fittest individuals
-        return population_evaluated[-number_fittest:]
-
-    def breed_generation(self, population_evaluated):
-        offspring = []
-
-        population = [individual for individual, score in population_evaluated]
-
-        # choose a member of the population, to match lonely individuals
-        couple_filler = population[0]
-        couples = list(matcher_utils.grouper(2, population, couple_filler))
-
-        # for all pairs of individuals:
-        for couple in couples:
-            individual_a, individual_b = couple
-
-            # get the individual genome for each
-            individual_a_chromosomes = self.create_chromosomes(individual_a)
-            individual_b_chromosomes = self.create_chromosomes(individual_b)
-
-            # apply crossover operator
-            child_a_chromosomes, child_b_chromosomes = self.crossover(individual_a_chromosomes, individual_b_chromosomes)
-
-            # apply mutation operators
-            mutated_child_a_chromosomes = self.mutate(child_a_chromosomes)
-            mutated_child_b_chromosomes = self.mutate(child_b_chromosomes)
-
-            # convert the genome back to an individual
-            child_a = self.create_individual(mutated_child_a_chromosomes)
-            child_b = self.create_individual(mutated_child_b_chromosomes)
-
-            # use the child if valid or get the closest valid solution
-            child_a = self.solution_generator.get_closest_valid_solution(child_a)
-            child_b = self.solution_generator.get_closest_valid_solution(child_b)
-
-            # append the children to the offspring
-            if child_a:
-                offspring.append(child_a)
-            else:
-                offspring.append(individual_a)
-
-            if child_b:
-                offspring.append(child_b)
-            else:
-                offspring.append(individual_b)
-
-        return offspring
-
-    def replace_worst(self, population_evaluated, offspring_evaluated, number_replacements):
-        new_population = []
-
-        population_evaluated.sort(self.compare_individuals)
-        offspring_evaluated.sort(self.compare_individuals)
-
-        top_offspring = offspring_evaluated[-self.number_replacements:]
-        top_population = population_evaluated[self.number_replacements:0]
-
-        new_population = top_offspring + top_population
-
-        return new_population
-
-    def create_chromosomes(self, individual):
-        chromosomes_map = {}
-
-        for trait in individual:
-            trait_value = individual[trait]
-            trait_binary_string = self.create_binary_string(trait_value)
-            chromosomes_map[trait] =  trait_binary_string
-
-        return chromosomes_map
-
-    def crossover(self, individual_a_chromosomes, individual_b_chromosomes):
-        child_a_chromosomes = {}
-        child_b_chromosomes = {}
-
-        for trait in individual_a_chromosomes:
-            individual_a_chromosome = individual_a_chromosomes[trait]
-            individual_b_chromosome = individual_b_chromosomes[trait]
-
-            # crossover by the half
-            crossover_point = int(len(individual_a_chromosome) / 2)
-
-            child_a_chromosome = individual_a_chromosome[0:crossover_point] + individual_b_chromosome[crossover_point:]
-            child_b_chromosome = individual_b_chromosome[0:crossover_point] + individual_a_chromosome[crossover_point:]
-
-            child_a_chromosomes[trait] = child_a_chromosome
-            child_b_chromosomes[trait] = child_b_chromosome
-
-        return (child_a_chromosomes, child_a_chromosomes)
-
-    def mutate(self, individual_chromosomes):
-        """
-        Applies the same mutation criteria to all the chromosomes.
-        """
-
-        for trait in individual_chromosomes:
-            individual_chromosome = individual_chromosomes[trait]
-            mutated_individual_chromosome = self.mutate_chromosome(individual_chromosome)
-            individual_chromosomes[trait] = mutated_individual_chromosome
-
-        return individual_chromosomes
-
-    def mutate_chromosome(self, chromosome):
-        # extension point for addition mutation techniques
-        # just using standard random flip bit for now
-
-        chromosome_length = len(chromosome) - 2
-        flip_bit_index = int(random.random() * chromosome_length + 2)
-
-        # because the string is imutable, convert it to a list
-        chromosome_list = list(chromosome)
-
-        # switch the selected bit in the list
-        if chromosome_list[flip_bit_index] == "0":
-            chromosome_list[flip_bit_index] = "1"
-        else:
-            chromosome_list[flip_bit_index] = "0"
-
-        # join the list elements back into a string again
-        chromosome = "".join(chromosome_list)
-
-        return chromosome
-
-    def create_individual(self, individual_chromosomes):
-        individual = {}
-
-        for trait in individual_chromosomes:
-            trait_value = int(individual_chromosomes[trait], 2)
-            individual[trait] = trait_value
-
-        return individual
-
-    def create_binary_string(self, trait_value):
-        """
-        Returns a binary string, filled to match the standard number of bits.
-        """
-
-        trait_value_binary_string = bin(trait_value)
-
-        bit_characters = trait_value_binary_string.split("0b")[1]
-        bit_characters = bit_characters.zfill(self.maximum_chromosome_length - len("0b"))
-        binary_string = "0b" + bit_characters
-
-        return binary_string
-
-    # @todo: create getters and setters for the optimizer parameters
-    def evaluate(self, individual):
-        individual_utility = self.solution_evaluator.evaluate(self.generator_parameters, individual)
-        individual_score = individual_utility["score"]
-
-        return individual_score
-
-    def compare_individuals(self, individual_a,individual_b):
-        individual_a_fitness = individual_a[FITNESS]
-        individual_b_fitness = individual_b[FITNESS]
-
-        return int(individual_a_fitness - individual_b_fitness)
-
-    def set_maximum_trait_value(self, maximum_trait_value):
-        maximum_trait_value_binary_string = bin(maximum_trait_value)
-        maximum_binary_string_length = len(maximum_trait_value_binary_string)
-
-        self.maximum_trait_value = maximum_trait_value
-        self.maximum_chromosome_length = maximum_binary_string_length
