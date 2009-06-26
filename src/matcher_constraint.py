@@ -155,6 +155,11 @@ class InvalidParametersError(Exception):
 
 class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
+    def __init__(self, forwardcheck=True):
+        constraint.BacktrackingSolver.__init__(self, forwardcheck)
+
+        self.neighbor_adjustment_mode = "closest_valid" #"reassign_variable"
+
     def getNeighborhood(self, solution, domains, constraints, vconstraints, operators):
         """
         Generates the neighborhood of solutions, for a specified solution.
@@ -168,7 +173,6 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
         existing constraints.
         The set of valid generated solutions is returned as a list.
         """
-
         return list(self.getNeighborhoodIterator(solution, domains, constraints, vconstraints, operators))
 
     def getNeighborhoodIterator(self, solution, domains, constraints, vconstraints, operators):
@@ -184,7 +188,6 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
         existing constraints.
         The set of valid generated solutions is returned as a list.
         """
-
         domains = domains.copy()
         constraints = constraints[:]
         vconstraints = vconstraints.copy()
@@ -212,13 +215,16 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
                     continue
 
                 # fix the neighbor_solution in order to obtain a valid solution
-
-                # pick one of the other variables to adjust into a valid value
-                adjustment_variable = random.choice(other_variables)
-
-                # get the neighbor solution by adjusting the selected variable
-                adjustment_neighbor_solution = self.getSolutionReassignVariable(domains, constraints, vconstraints, neighbor_solution, adjustment_variable)
-                #adjustment_neighbor_solution = self.getClosestValidSolution(neighbor_solution, domains, constraints, vconstraints)
+                if self.neighbor_adjustment_mode == "reassign_variable":
+                    # pick one of the other variables to adjust into a valid value
+                    adjustment_variable = random.choice(other_variables)
+                    # get the neighbor solution by adjusting the selected variable
+                    adjustment_neighbor_solution = self.getSolutionReassignVariable(domains, constraints, vconstraints, neighbor_solution, adjustment_variable)
+                elif self.neighbor_adjustment_mode == "closest_valid":
+                    # get the neighbor solution by finding the closest valid solution
+                    adjustment_neighbor_solution = self.getClosestValidSolution(neighbor_solution, domains, constraints, vconstraints)
+                else:
+                    adjustment_neighbor_solution = None
 
                 # if a valid solution is available append it to the neighbor solutions list
                 if adjustment_neighbor_solution:
@@ -237,11 +243,11 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
             variable_domain.remove(original_assignment)
 
         assignments = solution.copy()
-        
+
         # for all values in the variable's domain
         for value in variable_domain:
             assignments[variable] = value
-            
+
             # test if the value makes a valid solution, by checking all the constraints
             if self.isValidSolution(assignments, domains, vconstraints):
                 # if valid return the solution
@@ -249,7 +255,7 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
         # no solution found
         return None
-    
+
     def getClosestValidSolution(self, solution, domains, constraints, vconstraints):
         if not solution:
             return None
@@ -356,7 +362,7 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
         queue = []
         unassigned_variables = [variable for variable in domains if variable not in assignments]
         forwardcheck = self._forwardcheck
-        
+
         for unassigned_variable in unassigned_variables:
             variable = unassigned_variable
             values = domains[variable][:]
@@ -369,166 +375,6 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
             queue.append((variable, values, pushdomains))
 
         return queue
-
-    def getSolutionReassignVariable2(self, domains, constraints, vconstraints, solution, variable):
-        iterator = self.getSolutionReassignVariableIterator(domains, constraints, vconstraints, solution, variable)
-
-        try:
-            return iterator.next()
-        except StopIteration:
-            return None
-
-    # @todo: stop this from going into a loop, i think
-    def getSolutionReassignVariableIterator(self, original_domains, constraints, vconstraints, solution, reassignment_variable):
-        """
-        Re-assigns only the specified variable, to create a valid solution.
-        Removes the initially assigned value for the re-assignment variable, 
-        from its domain to avoid returning the original solution.
-        Check all the constraints on a potential solution, since the original solution might not be valid.
-        """
-
-        logging.debug("entering getSolutionReassignVariableIterator for variable %s" % reassignment_variable)
-
-        forwardcheck = self._forwardcheck
-
-        # initialize the generator with assignments populated with the specified solution
-        assignments = solution.copy()
-        
-        # remove the current assignment for the specified reassignment_variable, allowing for search to take place
-        original_assignment = assignments[reassignment_variable]
-        del assignments[reassignment_variable]
-        
-        # hide the current assignment from the variable's domain, to avoid cycling
-        domains = original_domains.copy()
-        do = domains[reassignment_variable]
-        try:
-            domains[reassignment_variable].hideValue(original_assignment)
-        except:
-            pass
-
-        # initialize the backtracking queue
-        queue = []
-        
-        # debug device
-        variable_iteration_counter = {}
-
-        while True:
-            logging.debug("starting the master loop")
-
-            # Mix the Degree and Minimum Remaing Values (MRV) heuristics
-
-            # build a list of tuples consisting of
-            # - negative of number of constraints on variable,
-            # - size of the variable domain,
-            # - variable name
-            lst = [(-len(vconstraints[variable]),
-                    len(domains[variable]), variable) for variable in domains]
-
-            # sort the list so that most constrained and smaller domain variables show up first
-            lst.sort()
-
-            # for each of the variables, starting from the easiest to assign
-            # pick the first unassigned variable
-            logging.debug("picking unassigned variables")
-            for item in lst:
-                # if the variable is not assigned
-                if item[-1] not in assignments:
-                    # Found unassigned variable
-                    logging.debug("found unassigned variable: %s" % item[-1])
-                    variable = item[-1]
-                    # get the possible values for the variable
-                    values = domains[variable][:]
-                    # if forward checking is enabled
-                    if forwardcheck:
-                        # build a list of the possible values for the other unassigned variables
-                        pushdomains = [domains[x] for x in domains
-                                                   if x not in assignments and
-                                                      x != variable]
-                    else:
-                        pushdomains = None
-                    break
-            else:
-                # No unassigned variables. We've got a solution. Go back
-                # to last variable, if there's one.
-                logging.debug("yielding an actual assignments: %s" % assignments)
-                logging.debug("%d iterations for variable: %s, total: %d" % (variable_iteration_counter.get(variable, 0), variable, len(domains[variable])))
-                yield assignments.copy()
-
-                # if there isn't a queue return
-                if not queue:
-                    logging.debug("no queue, returning...")
-                    logging.debug("%d iterations for variable: %s, total: %d" % (variable_iteration_counter.get(variable, 0), variable, len(domains[variable])))
-                    return
-                # get the first value from the queue of variables
-                # implements the backtracking behavior
-                variable, values, pushdomains = queue.pop()
-                # recovers the last domain for each variable ???
-                if pushdomains:
-                    for domain in pushdomains:
-                        domain.popState()
-
-            while True:
-                variable_iteration_counter[variable] = variable_iteration_counter.get(variable, 0) + 1
-
-                # We have a variable. Do we have any values left?
-                # if no value is left in the variable domain,
-                # unassign it and find another variable
-                if not values:
-                    # No. Go back to last variable, if there's one.
-                    logging.debug("1 deleting assignments for variable: %s" % variable)
-                    del assignments[variable]
-                    # for all the variables in the queue
-                    while queue:
-                        variable, values, pushdomains = queue.pop()
-                        if pushdomains:
-                            for domain in pushdomains:
-                                domain.popState()
-                        if values:
-                            break
-                        logging.debug("2 deleting assignments for variable: %s" % variable)
-                        del assignments[variable]
-                    else:
-                        # the queue is empty: solution space exhausted
-                        logging.debug("the queue is empty: solution space exhausted")
-                        logging.debug("%d iterations for variable: %s, total: %d" % (variable_iteration_counter.get(variable, 0), variable, len(domains[variable])))
-                        return
-
-                # Got a value. Check it.
-                assignments[variable] = values.pop()
-#                logging.debug("assigned: %d to %s" % (assignments[variable], variable))
-
-                if pushdomains:
-                    for domain in pushdomains:
-                        domain.pushState()
-
-                # test the result against all the constraints that involve the current variable
-                for constraint, variables in vconstraints[variable]:
-                    if not constraint(variables, domains, assignments,
-                                      pushdomains):
-                        # Value is not good.
-                        break
-                else:
-                    # test the result again all the constraints
-                    # todo: shouldn't have to retest the constraints on the current variable
-                    if(self.isValidSolution(solution, domains, vconstraints)):
-                        logging.debug("all constraints hold, breaking")
-                        logging.debug("%d iterations for variable: %s, total: %d" % (variable_iteration_counter.get(variable, 0), variable, len(domains[variable])))
-                        break
-                
-                if pushdomains:
-                    for domain in pushdomains:
-                        domain.popState()
-
-            # Push state before looking for next variable.
-            # push the current variable to allow backtracking
-            logging.debug("appending variable to queue len: %d" % len(queue))
-            logging.debug("%d iterations for variable: %s, total: %d" % (variable_iteration_counter.get(variable, 0), variable, len(domains[variable])))
-            queue.append((variable, values, pushdomains))
-
-        raise RuntimeError, "Can't happen"
-
-    def getSolutionsReassignVariable(self, domains, constraints, vconstraints, solution, variable):
-        return list(self.getSolutionReassignVariableIterator(domains, constraints, vconstraints, solution, variable))
 
     def isValidSolution(self, solution, domains, vconstraints):
         if not solution:
@@ -551,7 +397,7 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
         # if all the constraints apply, the solution is valid
         return True
-    
+
     def isValidSolutionVariable(self, solution, domains, vconstraints, variable):
         # check if variable is not in conflict
         for constraint, variables in vconstraints[variable]:
@@ -560,3 +406,9 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
                 return False
 
         return True
+
+    def getNeighborAdjustmentMode(self):
+        return self.neighbor_adjustment_mode
+
+    def setNeighborAdjustmentMode(self, neighbor_adjustment_mode):
+        self.neighbor_adjustment_mode = neighbor_adjustment_mode

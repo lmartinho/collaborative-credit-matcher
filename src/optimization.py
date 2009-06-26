@@ -362,6 +362,9 @@ class GeneticAlgorithmOptimizer(Optimizer):
         self.number_replacements = 4
         self.maximum_trait_value = None
 
+        # @todo: set this from the application code
+        self.set_maximum_trait_value(10000)
+
     @timed_optimizer_run
     def optimize(self):
         self.reset_termination_conditions()
