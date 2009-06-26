@@ -145,8 +145,12 @@ class MatcherSolutionGenerator(object):
             return None
 
     def get_solution(self):
+        logging.debug("solution requested")
         # @todo: return the solution affected by MAX_RATE to standardize the generator API (always 1=100%)
-        return self.solution_iterator.next()
+        solution = self.solution_iterator.next()
+        logging.debug("solution retrieved")
+
+        return solution 
 
     def get_solution_iterator(self):
         return self.solution_iterator
@@ -158,7 +162,11 @@ class MatcherSolutionGenerator(object):
         return self.problem.getNeighborhood(solution)
 
     def get_closest_valid_solution(self, candidate_solution):
-        return self.problem.getClosestValidSolution(candidate_solution)
+        logging.debug("closest solution requested")
+        solution = self.problem.getClosestValidSolution(candidate_solution)
+        logging.debug("closest solution retrieved")
+
+        return solution
 
     def get_variables(self):
         return self.problem.getVariables()

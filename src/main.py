@@ -85,16 +85,17 @@ def compare_optimizers():
                   "borrower_amount_standard_deviation" : 100,
                   "mean_borrower_rate" : 0.20,
                   "borrower_rate_standard_deviation" : 0.01,
-                  "number_lenders" : 5,
-                  "number_borrowers" : 5}
+                  "number_lenders" : 3,
+                  "number_borrowers" : 3}
 
     #scenario_parameters_list = [scenario1_parameters, scenario2_parameters, scenario3_parameters, scenario4_parameters]
     scenario_parameters_list = [scenario4_parameters]
-    optimizer_classes = [optimization.RandomSearchOptimizer,
-                         optimization.HillClimbingOptimizer,
-                         optimization.SimulatedAnnealingOptimizer,
-                         optimization.GeneticAlgorithmOptimizer,
-                         optimization.ParticleSwarmOptimizer]
+    optimizer_classes = [#optimization.RandomSearchOptimizer,
+                         optimization.HillClimbingOptimizer#,
+                         #optimization.SimulatedAnnealingOptimizer,
+                         #optimization.GeneticAlgorithmOptimizer,
+                         #optimization.ParticleSwarmOptimizer
+                         ]
     time_budget = 30
     iterations_budget = None
     number_runs = 1
@@ -145,4 +146,4 @@ logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 logging.debug('This message should go to the log file')
 compare_optimizers()
 #import cProfile
-#cProfile.run("measured_run1()")
+#cProfile.run("compare_optimizers()")

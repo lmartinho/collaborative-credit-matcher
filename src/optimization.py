@@ -749,8 +749,7 @@ class ParticleSwarmOptimizer(Optimizer):
                     particle_candidate_solution[variable] = variable_value + particle_velocities[particle][variable]
 
                 # get the closest valid solution
-                # @todo: start using the generator's get closest valid solution
-                particle_next_solution = self.get_closest_valid_solution(particle_candidate_solution)
+                particle_next_solution = self.solution_generator.get_closest_valid_solution(particle_candidate_solution)
 
                 # update the particle solution
                 particle_solutions[particle] = particle_next_solution
@@ -782,12 +781,3 @@ class ParticleSwarmOptimizer(Optimizer):
         best_particle = particle_fitnesses_local_bests.index(best_particle_fitness)
 
         return best_particle
-
-    def get_closest_valid_solution(self, particle_candidate_solution):
-        """
-        Uses the solution generator to retrieve a valid approximation to the
-        computed candidate solution.
-        """
-        # @TODO: missing constraints for development purposes
-        #return self.solution_generator.get_closest_valid_solution(particle_candidate_solution)
-        return particle_candidate_solution

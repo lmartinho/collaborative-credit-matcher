@@ -544,6 +544,7 @@ class BacktrackingSolver(Solver):
                     #logging.debug("all constraints hold, breaking")
                     break
 
+                # constraints were broken, restore the state
                 if pushdomains:
                     for domain in pushdomains:
                         domain.popState()

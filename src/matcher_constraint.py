@@ -280,14 +280,23 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
                     del assignments[variable]
                     # this variable has been processed
                     break
+                
+        queue = self.createBacktrackingQueue(assignments, domains, constraints)
+        
+        assignments = solution.copy()
+        unassign_variable = random.choice(lst) 
+        del assignments[unassign_variable]
 
         # start the normal assignment process
-        return self.getAssignmentsSolutionIter(assignments, domains, constraints, vconstraints).next()
+        try:
+            solution = self.getAssignmentsSolutionIter(assignments, domains, constraints, vconstraints, queue).next()
+        except StopIteration:
+            solution = None
+        
+        return solution
 
-    def getAssignmentsSolutionIter(self, assignments, domains, constraints, vconstraints):
+    def getAssignmentsSolutionIter(self, assignments, domains, constraints, vconstraints, queue):
         forwardcheck = self._forwardcheck
-
-        queue = self.createBacktrackingQueue(assignments, domains, constraints)
 
         while True:
 
@@ -308,9 +317,11 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
                         pushdomains = None
                     break
             else:
-                # No unassigned variables. We've got a solution. Go back
-                # to last variable, if there's one.
-                yield assignments.copy()
+                if self.isValidSolution(assignments, domains, vconstraints):                    
+                    # No unassigned variables. We've got a solution. Go back
+                    # to last variable, if there's one.
+                    yield assignments.copy()
+
                 if not queue:
                     return
                 variable, values, pushdomains = queue.pop()
@@ -370,8 +381,11 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
                 pushdomains = [domains[x] for x in unassigned_variables if x != variable]
             else:
                 pushdomains = None
-            break
-
+    
+            if pushdomains:
+                for domain in pushdomains:
+                    domain.pushState()
+    
             queue.append((variable, values, pushdomains))
 
         return queue
