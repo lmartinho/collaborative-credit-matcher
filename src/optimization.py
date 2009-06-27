@@ -281,8 +281,7 @@ class SimulatedAnnealingOptimizer(Optimizer):
             state_neighborhood = self.solution_generator.get_neighborhood(state)
 
             # get a random neighbor
-            # @todo: use random.choice on list
-            next_state = self.pick_at_random(state_neighborhood)
+            next_state = random.choice(state_neighborhood)
 
             # if a new state is not available continue
             if not next_state:
@@ -306,18 +305,6 @@ class SimulatedAnnealingOptimizer(Optimizer):
             energy = self.apply_cooling_schedule(energy)
 
         return state
-
-    def pick_at_random(self, solution_list):
-        if not solution_list:
-            return None
-
-        maximum_index = len(solution_list) - 1
-
-        random_index = int(round(random.random() * maximum_index))
-
-        random_item = solution_list[random_index]
-
-        return random_item
 
     def apply_acceptance_criterion(self, state, state_score, next_state, next_state_score, energy):
         energy_difference = float(next_state_score) - state_score

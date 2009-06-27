@@ -66,7 +66,7 @@ class MaxWeightedAverageConstraint(constraint.Constraint):
         # not doing any additional pruning
         return
 
-    def __call__(self, variables, domains, assignments, forwardcheck=False):
+    def __call__(self, variables, domains, assignments, forwardcheck=True):
         # get the max weighted average value of the constraint
         max_weighted_average = self._max_weighted_average
 
@@ -89,6 +89,31 @@ class MaxWeightedAverageConstraint(constraint.Constraint):
                 cummulative_weight_sum += weight
         if cummulative_weighted_average > max_weighted_average:
             return False
+        if forwardcheck:
+            for weight_variable, value_variable in grouped_variables:
+                if weight_variable not in assignments and value_variable not in assignments:
+                    # get the variables domains
+                    weight_domain = domains[weight_variable]
+                    value_domain = domains[value_variable]
+
+                    for weight in weight_domain[:]:
+                        for value in value_domain[:]:
+                            tmp_cummulative_weight_sum = cummulative_weight_sum
+                            tmp_cummulative_weighted_average = cummulative_weighted_average
+                            # update the running average
+                            if tmp_cummulative_weight_sum + weight > 0:
+                                tmp_cummulative_weighted_average = (cummulative_weight_sum * cummulative_weighted_average + weight * value) / (cummulative_weight_sum + weight)
+                            else:
+                                tmp_cummulative_weighted_average = 0
+
+                            if tmp_cummulative_weighted_average > max_weighted_average:
+                                weight_domain.hideValue(weight)
+                                value_domain.hideValue(value)
+                        if not value_domain:
+                            return False
+                    if not weight_domain:
+                        return False
+
         return True
 
 class MinWeightedAverageOrDefaultConstraint(constraint.Constraint):
@@ -121,7 +146,7 @@ class MinWeightedAverageOrDefaultConstraint(constraint.Constraint):
         # not doing any additional pruning
         return
 
-    def __call__(self, variables, domains, assignments, forwardcheck=False):
+    def __call__(self, variables, domains, assignments, forwardcheck=True):
         # get the min weighted average value of the constraint
         min_weighted_average = self._min_weighted_average
         default_value = self._default_value
@@ -145,6 +170,31 @@ class MinWeightedAverageOrDefaultConstraint(constraint.Constraint):
                 cummulative_weight_sum += weight
         if cummulative_weighted_average < min_weighted_average and cummulative_weighted_average != default_value:
             return False
+        if forwardcheck:
+            for weight_variable, value_variable in grouped_variables:
+                if weight_variable not in assignments and value_variable not in assignments:
+                    # get the variables domains
+                    weight_domain = domains[weight_variable]
+                    value_domain = domains[value_variable]
+
+                    for weight in weight_domain[:]:
+                        for value in value_domain[:]:
+                            tmp_cummulative_weight_sum = cummulative_weight_sum
+                            tmp_cummulative_weighted_average = cummulative_weighted_average
+                            # update the running average
+                            if tmp_cummulative_weight_sum + weight > 0:
+                                tmp_cummulative_weighted_average = (cummulative_weight_sum * cummulative_weighted_average + weight * value) / (cummulative_weight_sum + weight)
+                            else:
+                                tmp_cummulative_weighted_average = 0
+
+                            if tmp_cummulative_weighted_average < min_weighted_average and cummulative_weighted_average != default_value:
+                                weight_domain.hideValue(weight)
+                                value_domain.hideValue(value)
+                        if not value_domain:
+                            return False
+                    if not weight_domain:
+                        return False
+
         return True
 
 class InvalidSolutionError(Exception):
@@ -158,7 +208,7 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
     def __init__(self, forwardcheck=True):
         constraint.BacktrackingSolver.__init__(self, forwardcheck)
 
-        self.neighbor_adjustment_mode = "closest_valid" #"reassign_variable"
+        self.neighbor_adjustment_mode = "closest_valid"
 
     def getNeighborhood(self, solution, domains, constraints, vconstraints, operators):
         """
@@ -188,10 +238,6 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
         existing constraints.
         The set of valid generated solutions is returned as a list.
         """
-        domains = domains.copy()
-        constraints = constraints[:]
-        vconstraints = vconstraints.copy()
-        operators = operators[:]
 
         for variable in domains:
             # get a list of all the variable names
@@ -212,49 +258,6 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
                 # if the result is a valid solution, checks only the constraints of the specified variable
                 if self.isValidSolutionVariable(neighbor_solution, domains, vconstraints, variable):
                     yield neighbor_solution
-                    continue
-
-                # fix the neighbor_solution in order to obtain a valid solution
-                if self.neighbor_adjustment_mode == "reassign_variable":
-                    # pick one of the other variables to adjust into a valid value
-                    adjustment_variable = random.choice(other_variables)
-                    # get the neighbor solution by adjusting the selected variable
-                    adjustment_neighbor_solution = self.getSolutionReassignVariable(domains, constraints, vconstraints, neighbor_solution, adjustment_variable)
-                elif self.neighbor_adjustment_mode == "closest_valid":
-                    # get the neighbor solution by finding the closest valid solution
-                    adjustment_neighbor_solution = self.getClosestValidSolution(neighbor_solution, domains, constraints, vconstraints)
-                else:
-                    adjustment_neighbor_solution = None
-
-                # if a valid solution is available append it to the neighbor solutions list
-                if adjustment_neighbor_solution:
-                    if not self.isValidSolution(adjustment_neighbor_solution, domains, vconstraints):
-                        raise InvalidSolutionError
-                    yield adjustment_neighbor_solution
-                    continue
-
-    def getSolutionReassignVariable(self, domains, constraints, vconstraints, solution, variable):
-        # retrieve the variable's domain
-        variable_domain = domains[variable][:]
-
-        # exclude the original assignment from the variable's domain
-        original_assignment = solution[variable]
-        if original_assignment in variable_domain:
-            variable_domain.remove(original_assignment)
-
-        assignments = solution.copy()
-
-        # for all values in the variable's domain
-        for value in variable_domain:
-            assignments[variable] = value
-
-            # test if the value makes a valid solution, by checking all the constraints
-            if self.isValidSolution(assignments, domains, vconstraints):
-                # if valid return the solution
-                return assignments
-
-        # no solution found
-        return None
 
     def getClosestValidSolution(self, solution, domains, constraints, vconstraints):
         if not solution:
@@ -264,35 +267,28 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
         lst = domains.keys()
         random.shuffle(lst)
 
-        # my check
-        if len(assignments.keys()) != len(lst):
-            raise InvalidParametersError
-
-        if len(assignments.keys()) != len(vconstraints.keys()):
-            raise InvalidParametersError
-
         for variable in lst:
             # check if variable is not in conflict
-            for constraint, variables in vconstraints[variable]:
+            for variable_constraint, variables in vconstraints[variable]:
                 # if a single constraint is broken, the variable is in violation
-                if not constraint(variables, domains, assignments):
+                if not variable_constraint(variables, domains, assignments):
                     # unassign the variable
                     del assignments[variable]
                     # this variable has been processed
                     break
-                
-        queue = self.createBacktrackingQueue(assignments, domains, constraints)
-        
-        assignments = solution.copy()
-        unassign_variable = random.choice(lst) 
-        del assignments[unassign_variable]
+
+        for variable in assignments:
+            # set the domain, to be restricted to the assignment
+            domains[variable] = constraint.Domain([assignments[variable]])
+
+        queue = self.createBacktrackingQueue(assignments, domains)
 
         # start the normal assignment process
         try:
             solution = self.getAssignmentsSolutionIter(assignments, domains, constraints, vconstraints, queue).next()
         except StopIteration:
             solution = None
-        
+
         return solution
 
     def getAssignmentsSolutionIter(self, assignments, domains, constraints, vconstraints, queue):
@@ -317,7 +313,7 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
                         pushdomains = None
                     break
             else:
-                if self.isValidSolution(assignments, domains, vconstraints):                    
+                if self.isValidSolution(assignments, domains, vconstraints):
                     # No unassigned variables. We've got a solution. Go back
                     # to last variable, if there's one.
                     yield assignments.copy()
@@ -369,23 +365,38 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
         raise RuntimeError, "Can't happen"
 
-    def createBacktrackingQueue(self, assignments, domains, constraints):
+    def createBacktrackingQueue(self, assignments, domains):
+        # initialize the queue
         queue = []
-        unassigned_variables = [variable for variable in domains if variable not in assignments]
+        # retrieve all variable names
+        all_variables = domains.keys()
+        # get a list of the assigned variables
+        assigned_variables = assignments.keys()
+        # get forward check flag
         forwardcheck = self._forwardcheck
 
-        for unassigned_variable in unassigned_variables:
-            variable = unassigned_variable
-            values = domains[variable][:]
+        # create a stack element, for each assigned variable
+        for assigned_variable in assigned_variables:
+            variable = assigned_variable
+            values = domains[variable][:] # not true, but the best of our knowledge
+
+            # remove the current variable from all variables
+            # as we go down the assignment simulation
+            all_variables.remove(variable)
+
             if forwardcheck:
-                pushdomains = [domains[x] for x in unassigned_variables if x != variable]
+                # tricky: all_variables represents all the unassigned variables so far
+                pushdomains = [domains[x] for x in all_variables]
             else:
                 pushdomains = None
-    
+
             if pushdomains:
                 for domain in pushdomains:
                     domain.pushState()
-    
+
+            # skipping the constraint checking
+            # as the specified assignments uphold all relevant constraints
+
             queue.append((variable, values, pushdomains))
 
         return queue
@@ -396,14 +407,6 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
         lst = domains.keys()
         random.shuffle(lst)
-
-        # my check
-        if len(solution.keys()) != len(lst):
-            raise InvalidParametersError
-
-        if len(solution.keys()) != len(vconstraints.keys()):
-            raise InvalidParametersError
-
 
         for variable in lst:
             if not self.isValidSolutionVariable(solution, domains, vconstraints, variable):

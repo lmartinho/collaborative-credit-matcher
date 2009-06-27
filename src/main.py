@@ -4,6 +4,7 @@ import logging
 
 import matcher_optimization
 import optimization
+import queens_optimization
 
 def generate_scenario(parameters):
     scenario = {}
@@ -85,18 +86,18 @@ def compare_optimizers():
                   "borrower_amount_standard_deviation" : 100,
                   "mean_borrower_rate" : 0.20,
                   "borrower_rate_standard_deviation" : 0.01,
-                  "number_lenders" : 3,
-                  "number_borrowers" : 3}
+                  "number_lenders" : 5,
+                  "number_borrowers" : 5}
 
     #scenario_parameters_list = [scenario1_parameters, scenario2_parameters, scenario3_parameters, scenario4_parameters]
     scenario_parameters_list = [scenario4_parameters]
-    optimizer_classes = [#optimization.RandomSearchOptimizer,
-                         optimization.HillClimbingOptimizer#,
-                         #optimization.SimulatedAnnealingOptimizer,
-                         #optimization.GeneticAlgorithmOptimizer,
-                         #optimization.ParticleSwarmOptimizer
+    optimizer_classes = [optimization.RandomSearchOptimizer,
+                         optimization.HillClimbingOptimizer,
+                         optimization.SimulatedAnnealingOptimizer,
+                         optimization.GeneticAlgorithmOptimizer,
+                         optimization.ParticleSwarmOptimizer
                          ]
-    time_budget = 30
+    time_budget = 60
     iterations_budget = None
     number_runs = 1
 
@@ -139,11 +140,74 @@ def run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer
     logging.info("elapsed time: %ss" % optimizer.get_last_run_duration())
     logging.info("--")
 
+def run_queens():
+    parameters = {"n_queens" : 9}
+    # create the generator
+    solution_generator = queens_optimization.QueensSolutionGenerator(parameters)
+    # create the evaluator, using the tight margin utility function
+    solution_evaluator = queens_optimization.QueensSolutionEvaluator()
+    # create the visualizer
+    solution_visualizer = queens_optimization.QueensSolutionVisualizer()
+
+    solutions = solution_generator.get_solutions()
+
+    for solution in solutions:
+        solution_visualizer.display(parameters, solution)
+        neighbor_solutions = solution_generator.get_neighborhood(solution)
+
+        for neighbor_solution in neighbor_solutions:
+            solution_visualizer.display(parameters, neighbor_solution)
+        print "---------------------------"
+
+def run_matcher():
+    # homogeneous mean, smaller deviation
+    scenario4_parameters = {"mean_lender_amount" : 1000,
+                  "lender_amount_standard_deviation" : 100,
+                  "mean_lender_rate" : 0.05,
+                  "lender_rate_standard_deviation" : 0.01,
+                  "mean_borrower_amount" : 1000,
+                  "borrower_amount_standard_deviation" : 100,
+                  "mean_borrower_rate" : 0.20,
+                  "borrower_rate_standard_deviation" : 0.01,
+                  "number_lenders" : 5,
+                  "number_borrowers" : 5}
+
+    #scenario_parameters_list = [scenario1_parameters, scenario2_parameters, scenario3_parameters, scenario4_parameters]
+    scenario_parameters_list = [scenario4_parameters]
+
+    for scenario_parameters in scenario_parameters_list:
+        parameters = generate_scenario(scenario_parameters)
+
+        # create the generator
+        solution_generator = matcher_optimization.MatcherSolutionGenerator(parameters)
+        # create the evaluator, using the tight margin utility function
+        solution_evaluator = matcher_optimization.MatcherSolutionEvaluator(matcher_optimization.MatcherSolutionEvaluator.tight_margin_utility)
+        # create the visualizer
+        solution_visualizer = matcher_optimization.MatcherSolutionVisualizer()
+
+        for i in range(2):
+            solution = solution_generator.get_solution()
+            solution_visualizer.display_solution(parameters, solution)
+
+        solution[solution.keys()[0]] = solution[solution.keys()[0]] + 1
+
+        for i in range(10):
+            closest_valid_solution = solution_generator.get_closest_valid_solution(solution)
+            solution_visualizer.display_solution(parameters, closest_valid_solution)
+
+        neighbor_solutions = solution_generator.get_neighborhood(solution)
+        for neighbor_solution in neighbor_solutions:
+            solution_visualizer.display_solution(parameters, neighbor_solution)
+
 #LOG_FILENAME = '/tmp/logging_example.out'
 #logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG,)
 FORMAT = "%(asctime)-15s %(message)s"
-logging.basicConfig(format=FORMAT, level=logging.DEBUG)
+logging.basicConfig(format=FORMAT, level=logging.INFO)
 logging.debug('This message should go to the log file')
-compare_optimizers()
-#import cProfile
-#cProfile.run("compare_optimizers()")
+#compare_optimizers()
+#run_queens()
+#run_matcher()
+
+import cProfile
+#cProfile.run("run_matcher()")
+cProfile.run("compare_optimizers()")

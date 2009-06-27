@@ -150,7 +150,7 @@ class MatcherSolutionGenerator(object):
         solution = self.solution_iterator.next()
         logging.debug("solution retrieved")
 
-        return solution 
+        return solution
 
     def get_solution_iterator(self):
         return self.solution_iterator
@@ -159,7 +159,11 @@ class MatcherSolutionGenerator(object):
         return self.parameters
 
     def get_neighborhood(self, solution):
-        return self.problem.getNeighborhood(solution)
+        logging.debug("neighborhood requested")
+        neighborhood = self.problem.getNeighborhood(solution)
+        logging.debug("neighborhood retrieved")
+
+        return neighborhood
 
     def get_closest_valid_solution(self, candidate_solution):
         logging.debug("closest solution requested")
