@@ -91,11 +91,11 @@ def compare_optimizers():
 
     #scenario_parameters_list = [scenario1_parameters, scenario2_parameters, scenario3_parameters, scenario4_parameters]
     scenario_parameters_list = [scenario4_parameters]
-    optimizer_classes = [optimization.RandomSearchOptimizer,
-                         optimization.HillClimbingOptimizer,
-                         optimization.SimulatedAnnealingOptimizer,
-                         optimization.GeneticAlgorithmOptimizer,
-                         optimization.ParticleSwarmOptimizer
+    optimizer_classes = [#optimization.RandomSearchOptimizer,
+                         #optimization.HillClimbingOptimizer,
+                         #optimization.SimulatedAnnealingOptimizer,
+                         optimization.GeneticAlgorithmOptimizer
+                         #optimization.ParticleSwarmOptimizer
                          ]
     time_budget = 60
     iterations_budget = None

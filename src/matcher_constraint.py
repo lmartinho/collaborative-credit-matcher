@@ -25,6 +25,10 @@ class MatcherProblem(constraint.Problem):
             return None
         return self._solver.getClosestValidSolution(candidate_solution, domains, constraints, vconstraints)
 
+    def isValidSolution(self, candidate_solution):
+        domains, constraints, vconstraints = self._getArgs()
+        return self._solver.isValidSolution(candidate_solution, domains, vconstraints)
+
     def getVariables(self):
         return self._variables.keys()
 
