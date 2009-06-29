@@ -1,6 +1,7 @@
 import time
 import random
 import logging
+import statlib.stats
 
 import matcher_optimization
 import optimization
@@ -37,21 +38,23 @@ def generate_scenario(parameters):
 
 def compare_optimizers():
 
-    members_scale = [10, 50, 100]
-    time_budgets = [60, 180, 600]
-    iterations_budget = [100, 1000, 10000]
+    # number of times to run, to compute average
+    number_runs = 3
+    # number of sampling points for iterations
+    #iterations_budgets = [1, 5, 10, 50, 100, 500, 1000, 5000, 10000]
+    iterations_budgets = [1, 5, 10, 50, 100, 500, 1000]
 
-    # homogeneous mean, larger deviation
+    # aggressive lenders, conservative borrowers
     scenario1_parameters = {"mean_lender_amount" : 1000,
                   "lender_amount_standard_deviation" : 100,
-                  "mean_lender_rate" : 0.10,
-                  "lender_rate_standard_deviation" : 0.05,
+                  "mean_lender_rate" : 0.05,
+                  "lender_rate_standard_deviation" : 0.01,
                   "mean_borrower_amount" : 1000,
                   "borrower_amount_standard_deviation" : 100,
-                  "mean_borrower_rate" : 0.10,
-                  "borrower_rate_standard_deviation" : 0.05,
-                  "number_lenders" : 10,
-                  "number_borrowers" : 10}
+                  "mean_borrower_rate" : 0.20,
+                  "borrower_rate_standard_deviation" : 0.01,
+                  "number_lenders" : 5,
+                  "number_borrowers" : 5}
 
     # conservative lenders, aggressive borrowers
     scenario2_parameters = {"mean_lender_amount" : 1000,
@@ -65,17 +68,17 @@ def compare_optimizers():
                   "number_lenders" : 10,
                   "number_borrowers" : 10}
 
-    # aggressive lenders, conservative borrowers
+    # homogeneous mean, larger deviation
     scenario3_parameters = {"mean_lender_amount" : 1000,
                   "lender_amount_standard_deviation" : 100,
-                  "mean_lender_rate" : 0.05,
-                  "lender_rate_standard_deviation" : 0.01,
+                  "mean_lender_rate" : 0.10,
+                  "lender_rate_standard_deviation" : 0.10,
                   "mean_borrower_amount" : 1000,
                   "borrower_amount_standard_deviation" : 100,
-                  "mean_borrower_rate" : 0.20,
-                  "borrower_rate_standard_deviation" : 0.01,
-                  "number_lenders" : 10,
-                  "number_borrowers" : 10}
+                  "mean_borrower_rate" : 0.10,
+                  "borrower_rate_standard_deviation" : 0.10,
+                  "number_lenders" : 5,
+                  "number_borrowers" : 5}
 
     # homogeneous mean, smaller deviation
     scenario4_parameters = {"mean_lender_amount" : 1000,
@@ -88,37 +91,76 @@ def compare_optimizers():
                   "borrower_rate_standard_deviation" : 0.01,
                   "number_lenders" : 5,
                   "number_borrowers" : 5}
+    
+    # aggressive lenders, conservative borrowers, larger deviation
+    scenario5_parameters = {"mean_lender_amount" : 1000,
+                  "lender_amount_standard_deviation" : 100,
+                  "mean_lender_rate" : 0.05,
+                  "lender_rate_standard_deviation" : 0.10,
+                  "mean_borrower_amount" : 1000,
+                  "borrower_amount_standard_deviation" : 100,
+                  "mean_borrower_rate" : 0.20,
+                  "borrower_rate_standard_deviation" : 0.10,
+                  "number_lenders" : 5,
+                  "number_borrowers" : 5}
 
     #scenario_parameters_list = [scenario1_parameters, scenario2_parameters, scenario3_parameters, scenario4_parameters]
-    scenario_parameters_list = [scenario4_parameters]
-    optimizer_classes = [#optimization.RandomSearchOptimizer,
-                         #optimization.HillClimbingOptimizer,
-                         #optimization.SimulatedAnnealingOptimizer,
-                         optimization.GeneticAlgorithmOptimizer
-                         #optimization.ParticleSwarmOptimizer
+    scenario_parameters_list = [scenario5_parameters]
+    optimizer_classes = [optimization.RandomSearchOptimizer,
+                         optimization.HillClimbingOptimizer,
+                         optimization.SimulatedAnnealingOptimizer,
+                         optimization.GeneticAlgorithmOptimizer,
+                         optimization.ParticleSwarmOptimizer
                          ]
-    time_budget = 60
-    iterations_budget = None
-    number_runs = 1
+    time_budget = None
 
     for scenario_parameters in scenario_parameters_list:
         parameters = generate_scenario(scenario_parameters)
+        experiment_results = {}
 
         for optimizer_class in optimizer_classes:
-            for run in range(number_runs):
-                # create the generator
-                solution_generator = matcher_optimization.MatcherSolutionGenerator(parameters)
-                # create the evaluator, using the tight margin utility function
-                solution_evaluator = matcher_optimization.MatcherSolutionEvaluator(matcher_optimization.MatcherSolutionEvaluator.tight_margin_utility)
-                # create the visualizer
-                solution_visualizer = matcher_optimization.MatcherSolutionVisualizer()
+            experiment_results[optimizer_class] = {}
+            for iterations_budget in iterations_budgets:
+                scores = []
+                for run in range(number_runs):
+                    # create the generator
+                    solution_generator = matcher_optimization.MatcherSolutionGenerator(parameters)
+                    # create the evaluator, using the tight margin utility function
+                    solution_evaluator = matcher_optimization.MatcherSolutionEvaluator(matcher_optimization.MatcherSolutionEvaluator.tight_margin_utility)
+                    # create the visualizer
+                    solution_visualizer = matcher_optimization.MatcherSolutionVisualizer()
+    
+                    # create the coordinator, injecting the created objects
+                    optimizer = optimizer_class(solution_generator, solution_evaluator, solution_visualizer)
+    
+                    # run the optimizer
+                    logging.info("Run number %d of optimizer %s" % (run, optimizer))
+                    score = run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget, iterations_budget)
+                    scores.append(score)
+                mean_score = statlib.stats.mean(scores)
+                experiment_results[optimizer_class][iterations_budget] = mean_score
 
-                # create the coordinator, injecting the created objects
-                optimizer = optimizer_class(solution_generator, solution_evaluator, solution_visualizer)
+    print experiment_results
+    export_csv(experiment_results)
 
-                # run the optimizer
-                logging.info("Run number %d of optimizer %s" % (run, optimizer))
-                run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget, iterations_budget)
+def export_csv(experiment_results):
+    # print header
+    print "Iterations", 
+    for optimizer_class in experiment_results:
+        print optimizer_class, ", ",
+    print ""
+    
+    # print by row
+    sample_iterations_budgets = experiment_results[optimizer_class].keys()
+    for iterations_budget in sample_iterations_budgets:
+        # row number
+        print iterations_budget, ", ",
+    
+        # results for each column
+        for optimizer_class in experiment_results:
+            score = experiment_results[optimizer_class][iterations_budget]
+            print score, ", ",
+        print ""
 
 def run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget=None, iterations_budget=None):
     if time_budget:
@@ -139,6 +181,8 @@ def run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer
     logging.info("iterations: %s" % optimizer.get_last_run_iterations())
     logging.info("elapsed time: %ss" % optimizer.get_last_run_duration())
     logging.info("--")
+    
+    return utility["score"] 
 
 def run_queens():
     parameters = {"n_queens" : 9}
@@ -204,10 +248,10 @@ def run_matcher():
 FORMAT = "%(asctime)-15s %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 logging.debug('This message should go to the log file')
-#compare_optimizers()
+compare_optimizers()
 #run_queens()
 #run_matcher()
 
 import cProfile
 #cProfile.run("run_matcher()")
-cProfile.run("compare_optimizers()")
+#cProfile.run("compare_optimizers()")

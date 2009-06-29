@@ -167,17 +167,16 @@ class MatcherSolutionGenerator(object):
 
     def get_closest_valid_solution(self, candidate_solution):
         logging.debug("closest solution requested")
-        if self.problem.isValidSolution(candidate_solution):
-            solution = None
-        else:
-            solution = candidate_solution 
-        #solution = self.problem.getClosestValidSolution(candidate_solution)
+        solution = self.problem.getClosestValidSolution(candidate_solution)
         logging.debug("closest solution retrieved")
 
         return solution
 
     def get_variables(self):
         return self.problem.getVariables()
+    
+    def is_valid_solution(self, candidate_solution):
+        return self.problem.isValidSolution(candidate_solution)
 
 class MatcherSolutionEvaluator(object):
     """

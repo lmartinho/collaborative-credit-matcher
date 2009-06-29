@@ -456,19 +456,15 @@ class GeneticAlgorithmOptimizer(Optimizer):
             child_a = self.create_individual(mutated_child_a_chromosomes)
             child_b = self.create_individual(mutated_child_b_chromosomes)
 
-            # use the child if valid or get the closest valid solution
-            logging.debug("getting the closest valid solution to child A")
-            child_a = self.solution_generator.get_closest_valid_solution(child_a)
-            logging.debug("getting the closest valid solution to child B")
-            child_b = self.solution_generator.get_closest_valid_solution(child_b)
-
-            # append the children to the offspring
-            if child_a:
+            # use the child if valid or get the closest valid solution (discontinued) 
+            # if valid, append the children to the offspring
+            # else reject the child, and use one of the parents
+            if self.solution_generator.is_valid_solution(child_a):
                 offspring.append(child_a)
             else:
                 offspring.append(individual_a)
 
-            if child_b:
+            if self.solution_generator.is_valid_solution(child_b):
                 offspring.append(child_b)
             else:
                 offspring.append(individual_b)
@@ -735,8 +731,17 @@ class ParticleSwarmOptimizer(Optimizer):
 
                     particle_candidate_solution[variable] = variable_value + particle_velocities[particle][variable]
 
+                # strategy 1: reconstruction
                 # get the closest valid solution
-                particle_next_solution = self.solution_generator.get_closest_valid_solution(particle_candidate_solution)
+                #particle_next_solution = self.solution_generator.get_closest_valid_solution(particle_candidate_solution)
+
+                # strategy 2: rejection
+                # if the suggested move is to a valid position, accept it
+                if self.solution_generator.is_valid_solution(particle_candidate_solution):
+                    particle_next_solution = particle_candidate_solution
+                else:
+                    # else keep the same particle solution
+                    particle_next_solution = particle_solutions[particle]
 
                 # update the particle solution
                 particle_solutions[particle] = particle_next_solution
