@@ -169,12 +169,27 @@ class RandomSearchOptimizer(Optimizer):
             utility = self.solution_evaluator.evaluate(parameters, solution)
             score = utility["score"]
 
+            if solution == best_solution:
+                raise SolutionEvaluatorNotAvailableException
+
+            if best_solution and solution.values().sort() == best_solution.values().sort():
+                for key in solution.keys():
+                    if not best_solution[key] == solution[key]:
+                        break
+                else:
+                    pass
+
             # if the current score is better than the best score so far
             if score > best_score:
                 # store the new best result
                 best_score = score
                 best_utility = utility
                 best_solution = solution
+
+                logging.debug("new best solution found. new best score: %.10f" % score)
+            else:
+                logging.debug("solution found. score: %.10f" % score)
+            #self.solution_visualizer.debug(parameters, solution, utility)
 
         if not best_solution:
             raise matcher_constraint.NoSolutionAvailableException
@@ -227,10 +242,10 @@ class HillClimbingOptimizer(Optimizer):
                 if node_score > next_node_score:
                     next_node = node
                     next_node_score = node_score
-
-                    # display the current status (subject to double buffering)
-                    if debug:
-                        self.solution_visualizer.display(parameters, node, node_utility)
+                    logging.debug("new best solution found. new best score: %.10f" % node_score)
+                else:
+                    logging.debug("solution found. score: %.10f" % node_score)
+                #self.solution_visualizer.debug(parameters, solution, utility)
 
             # if no better neighbors exist, return the current node
             if next_node_score <= current_node_score:
@@ -241,9 +256,15 @@ class HillClimbingOptimizer(Optimizer):
         return current_node
 
 class SimulatedAnnealingOptimizer(Optimizer):
+    
+    def __init__(self, solution_generator, solution_evaluator, solution_visualizer=None):
+        Optimizer.__init__(self, solution_generator, solution_evaluator, solution_visualizer)
+        
+        self.initial_energy = 1000
+        self.cooling_alpha = 0.8
 
     @timed_optimizer_run
-    def optimize(self, iterations_budget=10000):
+    def optimize(self):
         """
         s <- s0; e <- E(s)                             // Initial state, energy.
         sb <- s; eb <- e                               // Initial "best" solution
@@ -271,14 +292,21 @@ class SimulatedAnnealingOptimizer(Optimizer):
         # get the initial state's score
         state_utility = self.solution_evaluator.evaluate(parameters, state)
         state_score = state_utility["score"]
+        
+        best_state = state
+        best_state_score = state_score
+        
+        cached_neighborhood_state = None
 
         # initial energy
-        energy = 1000
+        energy = self.initial_energy
 
         # while termination conditions not met
         while not self.termination_conditions_met():
             # get the current state's neighborhood
-            state_neighborhood = self.solution_generator.get_neighborhood(state)
+            if state != cached_neighborhood_state:
+                state_neighborhood = self.solution_generator.get_neighborhood(state)
+                cached_neighborhood_state = state
 
             # get a random neighbor
             next_state = random.choice(state_neighborhood)
@@ -290,24 +318,27 @@ class SimulatedAnnealingOptimizer(Optimizer):
             # get the next state score
             next_state_utility = self.solution_evaluator.evaluate(parameters, next_state)
             next_state_score = next_state_utility["score"]
+            
+            # update the best state
+            if next_state_score > best_state_score:
+                best_state = next_state
+                best_state_score = next_state_score
+                logging.debug("new best solution found. new best score: %.10f" % next_state_score)
+            else:
+                logging.debug("solution found. score: %.10f" % next_state_score)
+            #self.solution_visualizer.debug(parameters, solution, utility)
 
             if next_state_score > state_score:
                 state = next_state
             else:
                 state = self.apply_acceptance_criterion(state, state_score, next_state, next_state_score, energy)
 
-            # if a state transition occurred, show the new state
-            if debug and state == next_state:
-                # show the new best solution
-                self.solution_visualizer.display_solution(parameters, next_state)
-                self.solution_visualizer.display_utility(next_state_utility)
-
             energy = self.apply_cooling_schedule(energy)
 
-        return state
+        return best_state
 
     def apply_acceptance_criterion(self, state, state_score, next_state, next_state_score, energy):
-        energy_difference = float(next_state_score) - state_score
+        energy_difference = (float(next_state_score) - state_score) / state_score 
         acceptance_probability = math.exp(energy_difference / energy)
 
         random_value = random.random()
@@ -318,9 +349,21 @@ class SimulatedAnnealingOptimizer(Optimizer):
             return state
 
     def apply_cooling_schedule(self, energy):
-        cooling_alpha = 0.9 # (generally in the range 0.8 <= alpha <= 1)
+        cooling_alpha = self.cooling_alpha # (generally in the range 0.8 <= alpha <= 1)
 
         return float(energy) * cooling_alpha
+    
+    def get_cooling_alpha(self, ):
+        return self.cooling_alpha
+    
+    def set_cooling_alpha(self, cooling_alpha):
+        self.cooling_alpha = cooling_alpha
+        
+    def get_initial_energy(self):
+        return self.initial_energy
+    
+    def set_initial_energy(self, initial_energy):
+        self.initial_energy = initial_energy
 
 FITNESS = 1
 """
@@ -371,8 +414,6 @@ class GeneticAlgorithmOptimizer(Optimizer):
         best_solution = None
 
         while not self.termination_conditions_met():
-            logging.info("iteration %s" % self.last_run_iterations)
-
             # select best-ranking individuals to reproduce
             logging.debug("selecting best-ranking individuals to reproduce")
             fittest_population_evaluated = self.get_fittest(population_evaluated, self.reproduction_sample_size)
@@ -456,7 +497,7 @@ class GeneticAlgorithmOptimizer(Optimizer):
             child_a = self.create_individual(mutated_child_a_chromosomes)
             child_b = self.create_individual(mutated_child_b_chromosomes)
 
-            # use the child if valid or get the closest valid solution (discontinued) 
+            # use the child if valid or get the closest valid solution (discontinued)
             # if valid, append the children to the offspring
             # else reject the child, and use one of the parents
             if self.solution_generator.is_valid_solution(child_a):
@@ -644,7 +685,7 @@ class ParticleSwarmOptimizer(Optimizer):
     enddo
     """
     @timed_optimizer_run
-    def optimize(self, iterations_budget=10000):
+    def optimize(self):
         self.reset_termination_conditions()
 
         debug = False

@@ -36,8 +36,7 @@ class MatcherSolutionGenerator(object):
 
         self.create_constraints()
 
-        # @TODO: Shouldn't this be done Just In Time?
-        self.solution_iterator = self.problem.getSolutionIter()
+        self.solution_iterator = None
 
     def create_variables(self):
         logging.debug("creating variables")
@@ -146,7 +145,8 @@ class MatcherSolutionGenerator(object):
 
     def get_solution(self):
         logging.debug("solution requested")
-        # @todo: return the solution affected by MAX_RATE to standardize the generator API (always 1=100%)
+        if not self.solution_iterator:
+            self.solution_iterator = self.problem.getSolutionIter()
         solution = self.solution_iterator.next()
         logging.debug("solution retrieved")
 
@@ -174,7 +174,7 @@ class MatcherSolutionGenerator(object):
 
     def get_variables(self):
         return self.problem.getVariables()
-    
+
     def is_valid_solution(self, candidate_solution):
         return self.problem.isValidSolution(candidate_solution)
 
@@ -437,8 +437,14 @@ class MatcherSolutionVisualizer(object):
     def display_solution(self, parameters, solution):
         matcher_utils.print_solution(parameters, solution)
 
+    def debug_solution(self, parameters, solution):
+        matcher_utils.debug_solution(parameters, solution)
+
     def display_utility(self, utility):
         matcher_utils.print_utility(utility)
+
+    def debug_utility(self, utility):
+        matcher_utils.debug_utility(utility)
 
     def display(self, parameters, solution, utility):
 
@@ -451,3 +457,7 @@ class MatcherSolutionVisualizer(object):
             self.display_solution(parameters, solution)
             self.display_utility(utility)
             print
+
+    def debug(self, parameters, solution, utility):
+        self.debug_solution(parameters, solution)
+        self.debug_utility(utility)

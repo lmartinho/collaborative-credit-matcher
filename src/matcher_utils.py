@@ -1,4 +1,5 @@
 import itertools
+import logging
 
 MAX_RATE = 10000
 
@@ -111,6 +112,10 @@ def print_solution(parameters, solution):
     solutions_map = build_solutions_map(parameters, solution)
     print_solutions_map(parameters, solutions_map)
 
+def debug_solution(parameters, solution):
+    solutions_map = build_solutions_map(parameters, solution)
+    debug_solutions_map(parameters, solutions_map)
+
 def build_solutions_map(parameters, solution):
     solutions = {}
 
@@ -183,3 +188,53 @@ def print_solutions_map(parameters, solutions_map):
         print ""
         i += 1
     print "   -------------------------------------------------------------------"
+
+def format_match(amount, rate):
+    return "(%6.2f@%5.2f%%)" % (amount, rate)
+
+def debug_utility(utility):
+    logging.debug("Utility:")
+    logging.debug("borrower_rates_margin: %f" % utility["borrower_rates_margin"])
+    logging.debug("lender_rates_margin: %f " % utility["lender_rates_margin"])
+    logging.debug("member_rates_margin: %f" % utility["member_rates_margin"])
+    logging.debug("total_offered_amount: %d" % utility["total_offered_amount"])
+    logging.debug("total_requested_amount: %d" % utility["total_requested_amount"])
+    logging.debug("total_matched_amount: %d" % utility["total_matched_amount"])
+    logging.debug("fulfillment_rate: %f" % utility["fulfillment_rate"])
+    logging.debug("tightness: %f" % utility["tightness"])
+    logging.debug("individual results: %s" % utility["results"])
+    logging.debug("*score*: %f" % utility["score"])
+
+def debug_solutions_map(parameters, solutions_map):
+    lenders = parameters["lenders"]
+    borrowers = parameters["borrowers"]
+
+    # print the header
+    line = "                   |"
+    for borrower_id, borrower in borrowers.items():
+        amount = borrower["maximum_amount"]
+        rate = borrower["maximum_rate"] * 100
+        line += "B%s" % borrower_id
+        line += format_match(amount, rate)
+        line += "  "
+    logging.debug(line)
+
+    logging.debug("")
+
+    # print the body
+    i = 0
+    for lender_id, lender_solutions in solutions_map.items():
+        line = ""
+        lender = lenders[lender_id]
+        amount = lender["maximum_amount"]
+        rate = lender["minimum_rate"] * 100
+        line += "L%s" % lender_id
+        line += format_match(amount, rate)
+        line += "|  "
+
+        for borrower_solution_amount, borrower_solution_rate in lender_solutions.values():
+            line += format_match(borrower_solution_amount, borrower_solution_rate)
+            line +="  "
+        logging.debug(line)
+        i += 1
+    logging.debug("   -------------------------------------------------------------------")

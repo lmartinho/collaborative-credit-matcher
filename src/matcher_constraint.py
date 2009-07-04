@@ -85,6 +85,7 @@ class MaxWeightedAverageConstraint(constraint.Constraint):
             if weight_variable in assignments and value_variable in assignments:
                 weight = assignments[weight_variable]
                 value = assignments[value_variable]
+
                 # update the running average
                 if cummulative_weight_sum + weight > 0:
                     cummulative_weighted_average = (cummulative_weight_sum * cummulative_weighted_average + weight * value) / (cummulative_weight_sum + weight)
@@ -166,6 +167,7 @@ class MinWeightedAverageOrDefaultConstraint(constraint.Constraint):
             if weight_variable in assignments and value_variable in assignments:
                 weight = assignments[weight_variable]
                 value = assignments[value_variable]
+
                 # update the running average
                 if cummulative_weight_sum + weight > 0:
                     cummulative_weighted_average = (cummulative_weight_sum * cummulative_weighted_average + weight * value) / (cummulative_weight_sum + weight)
