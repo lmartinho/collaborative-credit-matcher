@@ -68,6 +68,19 @@ class Optimizer(object):
         # initialize the duration time
         self.last_run_duration = 0
 
+        # initialize the last run score
+        self.best_score = 0
+
+        # initialize the best solution
+        self.best_solution = None
+
+        # initialize the results maps, with the score
+        # at each sampling point
+        self.results = {}
+
+        # initialize the list of sampling points
+        self.sampling_points = []
+
     @timed_optimizer_run
     def optimize(self):
         raise NotImplementedError, \
@@ -84,6 +97,9 @@ class Optimizer(object):
         self.last_run_iterations = 0
 
     def termination_conditions_met(self):
+        # record results if required
+        self.record_results()
+
         # stop if there is a time budget, and it has been exceeded
         if self.stop_time and time.time() >= self.stop_time:
             return True
@@ -101,6 +117,10 @@ class Optimizer(object):
 
         # keep running, termination conditions not met
         return False
+
+    def record_results(self):
+        if self.last_run_iterations in self.sampling_points:
+            self.results[self.last_run_iterations] = self.best_score
 
     def get_time_budget(self):
         return self.time_budget
@@ -138,6 +158,15 @@ class Optimizer(object):
         """
         self.last_run_duration = duration
 
+    def get_sampling_points(self):
+        return self.sampling_points
+
+    def set_sampling_points(self, sampling_points):
+        self.sampling_points = sampling_points
+
+    def get_results(self):
+        return self.results
+
     def set_solution_generator(self, solution_generator):
         self.solution_generator = solution_generator
 
@@ -157,8 +186,8 @@ class RandomSearchOptimizer(Optimizer):
         parameters = self.solution_generator.get_parameters()
 
         # the solution generator is the solution iterator method of the constraint problem object
-        best_score = None
-        best_solution = None
+        self.best_score = None
+        self.best_solution = None
 
         while not self.termination_conditions_met():
             solution = self.solution_generator.get_solution()
@@ -169,32 +198,32 @@ class RandomSearchOptimizer(Optimizer):
             utility = self.solution_evaluator.evaluate(parameters, solution)
             score = utility["score"]
 
-            if solution == best_solution:
+            if solution == self.best_solution:
                 raise SolutionEvaluatorNotAvailableException
 
-            if best_solution and solution.values().sort() == best_solution.values().sort():
+            if self.best_solution and solution.values().sort() == self.best_solution.values().sort():
                 for key in solution.keys():
-                    if not best_solution[key] == solution[key]:
+                    if not self.best_solution[key] == solution[key]:
                         break
                 else:
                     pass
 
             # if the current score is better than the best score so far
-            if score > best_score:
+            if score > self.best_score:
                 # store the new best result
-                best_score = score
+                self.best_score = score
                 best_utility = utility
-                best_solution = solution
+                self.best_solution = solution
 
                 logging.debug("new best solution found. new best score: %.10f" % score)
             else:
                 logging.debug("solution found. score: %.10f" % score)
             #self.solution_visualizer.debug(parameters, solution, utility)
 
-        if not best_solution:
+        if not self.best_solution:
             raise matcher_constraint.NoSolutionAvailableException
 
-        return best_solution
+        return self.best_solution
 
 class HillClimbingOptimizer(Optimizer):
 
@@ -252,16 +281,19 @@ class HillClimbingOptimizer(Optimizer):
                 return current_node
 
             current_node = next_node
+            self.best_solution = next_node
+            self.best_score = next_node_score
 
         return current_node
 
 class SimulatedAnnealingOptimizer(Optimizer):
-    
+
     def __init__(self, solution_generator, solution_evaluator, solution_visualizer=None):
         Optimizer.__init__(self, solution_generator, solution_evaluator, solution_visualizer)
-        
-        self.initial_energy = 1000
-        self.cooling_alpha = 0.8
+
+        self.initial_energy = 100.0
+        self.cooling_alpha = 0.9
+        self.neighborhood_sample_part = 0.05
 
     @timed_optimizer_run
     def optimize(self):
@@ -292,10 +324,11 @@ class SimulatedAnnealingOptimizer(Optimizer):
         # get the initial state's score
         state_utility = self.solution_evaluator.evaluate(parameters, state)
         state_score = state_utility["score"]
-        
-        best_state = state
-        best_state_score = state_score
-        
+
+        self.best_solution = state
+        self.best_score = state_score
+
+        # the reference for the state, whose neighborhood is cached
         cached_neighborhood_state = None
 
         # initial energy
@@ -308,21 +341,44 @@ class SimulatedAnnealingOptimizer(Optimizer):
                 state_neighborhood = self.solution_generator.get_neighborhood(state)
                 cached_neighborhood_state = state
 
-            # get a random neighbor
-            next_state = random.choice(state_neighborhood)
+#            # get a random neighbor
+#            next_state = random.choice(state_neighborhood)
+#
+#            # if a new state is not available continue
+#            if not next_state:
+#                continue
+#
+#            # get the next state score
+#            next_state_utility = self.solution_evaluator.evaluate(parameters, next_state)
+#            next_state_score = next_state_utility["score"]
 
-            # if a new state is not available continue
+            # get the best neighbor in a sample of the full neighborhood
+            neighborhood_sample_size = int(self.neighborhood_sample_part * len(state_neighborhood))
+            state_neighborhood_sample = random.sample(state_neighborhood, neighborhood_sample_size)
+
+            best_neighbor = None
+            best_neighbor_score = None
+            for next_state in state_neighborhood_sample:
+                # get the next state score
+                next_state_utility = self.solution_evaluator.evaluate(parameters, next_state)
+                next_state_score = next_state_utility["score"]
+
+                if next_state_score > best_neighbor_score:
+                    best_neighbor = next_state
+                    best_neighbor_score = next_state_score
+
+            # use the best neighbor as the next neighbor to consider
+            next_state = best_neighbor
+            next_state_score = best_neighbor_score
+
             if not next_state:
                 continue
 
-            # get the next state score
-            next_state_utility = self.solution_evaluator.evaluate(parameters, next_state)
-            next_state_score = next_state_utility["score"]
-            
-            # update the best state
-            if next_state_score > best_state_score:
-                best_state = next_state
-                best_state_score = next_state_score
+            # update the best solution
+            if next_state_score > self.best_score:
+                self.best_solution = next_state
+                self.best_score = next_state_score
+
                 logging.debug("new best solution found. new best score: %.10f" % next_state_score)
             else:
                 logging.debug("solution found. score: %.10f" % next_state_score)
@@ -330,38 +386,42 @@ class SimulatedAnnealingOptimizer(Optimizer):
 
             if next_state_score > state_score:
                 state = next_state
+                state_score = next_state_score
             else:
-                state = self.apply_acceptance_criterion(state, state_score, next_state, next_state_score, energy)
+                state, state_score = self.apply_acceptance_criterion(state, state_score, next_state, next_state_score, energy)
 
             energy = self.apply_cooling_schedule(energy)
 
-        return best_state
+        return self.best_solution
 
     def apply_acceptance_criterion(self, state, state_score, next_state, next_state_score, energy):
-        energy_difference = (float(next_state_score) - state_score) / state_score 
-        acceptance_probability = math.exp(energy_difference / energy)
+        energy_difference = (float(next_state_score) - state_score) / state_score
+        if not energy == 0:
+            acceptance_probability = math.exp(energy_difference / energy)
+        else:
+            acceptance_probability = 0
 
         random_value = random.random()
 
         if random_value <= acceptance_probability:
-            return next_state
+            return next_state, next_state_score
         else:
-            return state
+            return state, state_score
 
     def apply_cooling_schedule(self, energy):
         cooling_alpha = self.cooling_alpha # (generally in the range 0.8 <= alpha <= 1)
 
         return float(energy) * cooling_alpha
-    
+
     def get_cooling_alpha(self, ):
         return self.cooling_alpha
-    
+
     def set_cooling_alpha(self, cooling_alpha):
         self.cooling_alpha = cooling_alpha
-        
+
     def get_initial_energy(self):
         return self.initial_energy
-    
+
     def set_initial_energy(self, initial_energy):
         self.initial_energy = initial_energy
 
@@ -411,12 +471,17 @@ class GeneticAlgorithmOptimizer(Optimizer):
         population_evaluated = self.evaluate_fitness(initial_population)
 
         # the solution generator is the solution iterator method of the constraint problem object
-        best_solution = None
+        self.best_solution = None
+        self.best_score = None
 
         while not self.termination_conditions_met():
             # select best-ranking individuals to reproduce
             logging.debug("selecting best-ranking individuals to reproduce")
             fittest_population_evaluated = self.get_fittest(population_evaluated, self.reproduction_sample_size)
+
+            self.best_solution, self.best_score = fittest_population_evaluated[-1]
+            print fittest_population_evaluated[-1][1]
+            print fittest_population_evaluated[0][1]
 
             # breed new generation through crossover and/or mutation (genetic operations) and give birth to offspring
             logging.debug("breeding next generation")
@@ -436,16 +501,10 @@ class GeneticAlgorithmOptimizer(Optimizer):
             if not population_evaluated:
                 raise EmptyPopulationError
 
-        # get the best individual from the last generation
-        fittest_population_evaluated = self.get_fittest(population_evaluated, 1)
-
-        # get the solution from the individual-fitness tuple list
-        best_solution, best_score = fittest_population_evaluated[0]
-
-        if not best_solution:
+        if not self.best_solution:
             raise matcher_constraint.NoSolutionAvailableException
 
-        return best_solution
+        return self.best_solution
 
     def create_population(self):
         population = []
@@ -487,7 +546,8 @@ class GeneticAlgorithmOptimizer(Optimizer):
             individual_b_chromosomes = self.create_chromosomes(individual_b)
 
             # apply crossover operator
-            child_a_chromosomes, child_b_chromosomes = self.crossover(individual_a_chromosomes, individual_b_chromosomes)
+            #child_a_chromosomes, child_b_chromosomes = self.crossover(individual_a_chromosomes, individual_b_chromosomes)
+            child_a_chromosomes, child_b_chromosomes = (individual_a_chromosomes, individual_b_chromosomes)
 
             # apply mutation operators
             mutated_child_a_chromosomes = self.mutate(child_a_chromosomes)
@@ -500,15 +560,39 @@ class GeneticAlgorithmOptimizer(Optimizer):
             # use the child if valid or get the closest valid solution (discontinued)
             # if valid, append the children to the offspring
             # else reject the child, and use one of the parents
-            if self.solution_generator.is_valid_solution(child_a):
-                offspring.append(child_a)
-            else:
-                offspring.append(individual_a)
+#            if self.solution_generator.is_valid_solution(child_a):
+#                offspring.append(child_a)
+#            else:
+#                offspring.append(individual_a)
 
-            if self.solution_generator.is_valid_solution(child_b):
-                offspring.append(child_b)
+#            if self.solution_generator.is_valid_solution(child_b):
+#                logging.debug("adding child")
+#                offspring.append(child_b)
+#            else:
+#                valid_solution = self.solution_generator.get_closest_valid_solution(child_b)
+#                if valid_solution:
+#                    logging.debug("added transformed parent")
+#                    offspring.append(valid_solution)
+#                else:
+#                    logging.debug("keeping parent")
+#                    offspring.append(individual_b)
+
+            child_a = self.solution_generator.get_closest_valid_solution(child_a)
+            child_b = self.solution_generator.get_closest_valid_solution(child_b)
+            
+            if not child_a:
+                child_a = individual_a
+                logging.debug("using parent a")
             else:
-                offspring.append(individual_b)
+                logging.debug("using child a")
+            if not child_b:
+                child_b = individual_b
+                logging.debug("using parent b")
+            else:
+                logging.debug("using child b")
+
+            offspring.append(child_a)
+            offspring.append(child_b)
 
         return offspring
 
@@ -519,7 +603,7 @@ class GeneticAlgorithmOptimizer(Optimizer):
         offspring_evaluated.sort(self.compare_individuals)
 
         top_offspring = offspring_evaluated[-self.number_replacements:]
-        top_population = population_evaluated[self.number_replacements:0]
+        top_population = population_evaluated[-self.number_replacements:]
 
         new_population = top_offspring + top_population
 
@@ -559,7 +643,11 @@ class GeneticAlgorithmOptimizer(Optimizer):
         Applies the same mutation criteria to all the chromosomes.
         """
 
-        for trait in individual_chromosomes:
+        self.number_traits_mutate = 3
+        # pick a sample of the traits to mutate
+        traits = random.sample(individual_chromosomes, self.number_traits_mutate)
+        # mutate only the picked traits
+        for trait in traits:
             individual_chromosome = individual_chromosomes[trait]
             mutated_individual_chromosome = self.mutate_chromosome(individual_chromosome)
             individual_chromosomes[trait] = mutated_individual_chromosome

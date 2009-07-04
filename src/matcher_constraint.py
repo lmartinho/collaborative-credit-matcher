@@ -20,6 +20,29 @@ class MatcherProblem(constraint.Problem):
         return self._solver.getNeighborhood(solution, domains, constraints, vconstraints, operators)
 
     def getClosestValidSolution(self, candidate_solution):
+        """
+        Find and return the neighboring solutions to a given solution.
+        """
+        domains, constraints, vconstraints = self._getArgs()
+        operators = self._operators
+        if not domains:
+            return None
+
+        # if the specified solution is valid, return it and look no further
+        if self._solver.isValidSolution(candidate_solution, domains, vconstraints):
+            return candidate_solution
+
+        # get the neighborhood
+        neighborhood = list(self._solver.getNeighborhood(candidate_solution, domains, constraints, vconstraints, operators))
+
+        # check for a valid neighbor
+        for neighbor in neighborhood:
+             if self._solver.isValidSolution(neighbor, domains, vconstraints):
+                 return neighbor
+
+        return None
+
+    def getClosestValidSolution2(self, candidate_solution):
         domains, constraints, vconstraints = self._getArgs()
         if not domains:
             return None
@@ -264,7 +287,7 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
                 # if the result is a valid solution, checks only the constraints of the specified variable
                 if self.isValidSolutionVariable(neighbor_solution, domains, vconstraints, variable):
                     yield neighbor_solution
-
+        
     def getClosestValidSolution(self, solution, domains, constraints, vconstraints):
         if not solution:
             return None
@@ -291,7 +314,9 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
         # start the normal assignment process
         try:
+            logging.debug("getting assignments solution")
             solution = self.getAssignmentsSolutionIter(assignments, domains, constraints, vconstraints, queue).next()
+            logging.debug("got assignments solution")
         except StopIteration:
             solution = None
 
@@ -372,6 +397,7 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
         raise RuntimeError, "Can't happen"
 
     def createBacktrackingQueue(self, assignments, domains):
+        logging.debug("creating backtracking queue")
         # initialize the queue
         queue = []
         # retrieve all variable names
@@ -405,6 +431,7 @@ class NeighborhoodBacktrackingSolver(constraint.BacktrackingSolver):
 
             queue.append((variable, values, pushdomains))
 
+        logging.debug("finished creating backtracking queue")
         return queue
 
     def isValidSolution(self, solution, domains, vconstraints):

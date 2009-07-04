@@ -39,21 +39,22 @@ def generate_scenario(parameters):
 
 def export_csv(experiment_results):
     # print header
-    print "Iterations",
+    print "Iterations;",
     for optimizer_class in experiment_results:
-        print optimizer_class, ", ",
+        print "%s," % optimizer_class.__name__,
     print ""
 
     # print by row
     sample_iterations_budgets = experiment_results[optimizer_class].keys()
+    sample_iterations_budgets.sort()
     for iterations_budget in sample_iterations_budgets:
         # row number
-        print iterations_budget, ", ",
+        print "%d;" % iterations_budget,
 
         # results for each column
         for optimizer_class in experiment_results:
             score = experiment_results[optimizer_class][iterations_budget]
-            print score, ", ",
+            print "%f;" % score,
         print ""
 
 def run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget=None, iterations_budget=None):

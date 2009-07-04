@@ -20,6 +20,69 @@ LOGGING_LEVEL = logging.DEBUG
 logging.basicConfig(format=FORMAT, level=LOGGING_LEVEL)
 """ The basic logging configuration """
 
+def analyze_metaheuristics():
+    # defining experimental setup
+    sampling_points = [1, 10, 100, 1000]
+
+    # Scenario 1: Highly competitive, tight market
+    scenario1_parameters = {"mean_lender_amount" : 1000,
+                  "lender_amount_standard_deviation" : 100,
+                  "mean_lender_rate" : 0.05,
+                  "lender_rate_standard_deviation" : 0.01,
+                  "mean_borrower_amount" : 1000,
+                  "borrower_amount_standard_deviation" : 100,
+                  "mean_borrower_rate" : 0.20,
+                  "borrower_rate_standard_deviation" : 0.01,
+                  "number_lenders" : 5,
+                  "number_borrowers" : 5}
+
+    optimizer_classes = [#optimization.RandomSearchOptimizer,
+                         #optimization.HillClimbingOptimizer,
+                         #optimization.SimulatedAnnealingOptimizer#,
+                         optimization.GeneticAlgorithmOptimizer,
+                         #optimization.ParticleSwarmOptimizer
+                         ]
+
+    # generate the environment parameters
+    parameters = generate_scenario(scenario1_parameters)
+
+    experiment_results = {}
+
+    number_runs = 1
+
+    time_budget = None
+    iterations_budget = 1000
+
+    for optimizer_class in optimizer_classes:
+        experiment_results[optimizer_class] = {}
+
+        for run in range(number_runs):
+            # create the generator
+            solution_generator = matcher_optimization.MatcherSolutionGenerator(parameters)
+            # create the evaluator, using the tight margin utility function
+            solution_evaluator = matcher_optimization.MatcherSolutionEvaluator(matcher_optimization.MatcherSolutionEvaluator.tight_margin_utility)
+            # create the visualizer
+            solution_visualizer = matcher_optimization.MatcherSolutionVisualizer()
+
+            # create the coordinator, injecting the created objects
+            optimizer = optimizer_class(solution_generator, solution_evaluator, solution_visualizer)
+
+            # set the sampling points in the optimizer
+            optimizer.set_sampling_points(sampling_points)
+
+            # run the optimizer
+            logging.info("Run number %d of optimizer %s" % (run, optimizer))
+            score = run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget, iterations_budget)
+
+            run_results = optimizer.get_results()
+
+        # @todo: calculate the mean score for each sampling point
+
+        experiment_results[optimizer_class] = run_results
+
+    #print experiment_results
+    export_csv(experiment_results)
+
 def compare_optimizers():
 
     # number of times to run, to compute average
@@ -100,7 +163,7 @@ def compare_optimizers():
                          #optimization.ParticleSwarmOptimizer
                          ]
     time_budget = None
-    
+
 #    optimizer_parameters = {optimization.SimulatedAnnealingOptimizer : {"initial_energy" : [10, 100, 1000]}}
 
     for scenario_parameters in scenario_parameters_list:
@@ -191,7 +254,8 @@ def run_matcher():
         for neighbor_solution in neighbor_solutions:
             solution_visualizer.display_solution(parameters, neighbor_solution)
 
-compare_optimizers()
+#compare_optimizers()
+analyze_metaheuristics()
 #run_queens()
 #run_matcher()
 
