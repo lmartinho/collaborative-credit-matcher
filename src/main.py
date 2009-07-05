@@ -12,7 +12,7 @@ from experiments import *
 FORMAT = "%(asctime)-15s %(message)s"
 """ The format for debugger messages """
 
-LOGGING_LEVEL = logging.INFO
+LOGGING_LEVEL = logging.DEBUG
 """ The configured logging level """
 
 #LOG_FILENAME = '/tmp/logging_example.out'
@@ -36,11 +36,11 @@ def analyze_metaheuristics():
                   "number_lenders" : 5,
                   "number_borrowers" : 5}
 
-    optimizer_classes = [optimization.RandomSearchOptimizer,
-                         optimization.HillClimbingOptimizer,
+    optimizer_classes = [#optimization.RandomSearchOptimizer,
+                         #optimization.HillClimbingOptimizer,
                          #optimization.SimulatedAnnealingOptimizer,
-                         optimization.GeneticAlgorithmOptimizer,
-                         #optimization.ParticleSwarmOptimizer
+                         #optimization.GeneticAlgorithmOptimizer,
+                         optimization.ParticleSwarmOptimizer
                          ]
 
     # generate the environment parameters
@@ -51,7 +51,7 @@ def analyze_metaheuristics():
     number_runs = 1
 
     time_budget = None
-    iterations_budget = 100
+    iterations_budget = 10
 
     for optimizer_class in optimizer_classes:
         experiment_results[optimizer_class] = {}

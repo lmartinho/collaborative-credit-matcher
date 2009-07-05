@@ -849,7 +849,7 @@ class ParticleSwarmOptimizer(Optimizer):
 
             # update the local bests and their fitness
             for particle in particles:
-                if(particle_fitnesses[particle] > particle_fitnesses_local_bests[particle]):
+                if particle_fitnesses[particle] > particle_fitnesses_local_bests[particle]:
                     # update the local best
                     particle_solutions_local_bests[particle] = particle_solutions[particle]
                     # update the local best fitness
@@ -860,6 +860,9 @@ class ParticleSwarmOptimizer(Optimizer):
             if particle_fitnesses_local_bests[best_particle] > global_best_fitness:
                 global_best_solution = particle_solutions_local_bests[best_particle]
                 global_best_fitness = particle_fitnesses_local_bests[best_particle]
+                
+                self.best_solution = global_best_solution
+                self.best_score = global_best_fitness 
 
             # update the particle velocity and position
             for particle in particles:
@@ -888,15 +891,21 @@ class ParticleSwarmOptimizer(Optimizer):
 
                 # strategy 1: reconstruction
                 # get the closest valid solution
-                #particle_next_solution = self.solution_generator.get_closest_valid_solution(particle_candidate_solution)
+                particle_next_solution = self.solution_generator.get_closest_valid_solution(particle_candidate_solution)
+                
+                if not particle_next_solution:
+                    logging.debug("using a new valid particle")
+                    particle_next_solution = particle_solutions[particle]
+                else:
+                    logging.debug("using the same particle")
 
                 # strategy 2: rejection
                 # if the suggested move is to a valid position, accept it
-                if self.solution_generator.is_valid_solution(particle_candidate_solution):
-                    particle_next_solution = particle_candidate_solution
-                else:
-                    # else keep the same particle solution
-                    particle_next_solution = particle_solutions[particle]
+#                if self.solution_generator.is_valid_solution(particle_candidate_solution):
+#                    particle_next_solution = particle_candidate_solution
+#                else:
+#                    # else keep the same particle solution
+#                    particle_next_solution = particle_solutions[particle]
 
                 # update the particle solution
                 particle_solutions[particle] = particle_next_solution
