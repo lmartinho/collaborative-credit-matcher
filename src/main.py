@@ -22,7 +22,7 @@ logging.basicConfig(format=FORMAT, level=LOGGING_LEVEL)
 
 def analyze_metaheuristics():
     # defining experimental setup
-    sampling_points = [1, 5, 10, 100]
+    sampling_points = [1, 5, 10, 20, 50, 100, 1000]
 
     # Scenario 1: Highly competitive, tight market
     scenario1_parameters = {"mean_lender_amount" : 1000,
@@ -36,10 +36,10 @@ def analyze_metaheuristics():
                   "number_lenders" : 5,
                   "number_borrowers" : 5}
 
-    optimizer_classes = [#optimization.RandomSearchOptimizer,
-                         #optimization.HillClimbingOptimizer,
-                         #optimization.SimulatedAnnealingOptimizer,
-                         #optimization.GeneticAlgorithmOptimizer,
+    optimizer_classes = [optimization.RandomSearchOptimizer,
+                         optimization.HillClimbingOptimizer,
+                         optimization.SimulatedAnnealingOptimizer,
+                         optimization.GeneticAlgorithmOptimizer,
                          optimization.ParticleSwarmOptimizer
                          ]
 
@@ -51,7 +51,7 @@ def analyze_metaheuristics():
     number_runs = 1
 
     time_budget = None
-    iterations_budget = 10
+    iterations_budget = 1000
 
     for optimizer_class in optimizer_classes:
         experiment_results[optimizer_class] = {}

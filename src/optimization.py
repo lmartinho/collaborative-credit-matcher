@@ -805,9 +805,9 @@ class ParticleSwarmOptimizer(Optimizer):
         debug = False
 
         number_particles = 10
-        inertial_constant = 0.9
-        cognitive_weight = 2
-        social_weight = 2
+        inertial_constant = 0.95
+        cognitive_weight = 1.5
+        social_weight = 1.5
 
         particles = range(number_particles)
         variables = self.solution_generator.get_variables()
@@ -842,6 +842,8 @@ class ParticleSwarmOptimizer(Optimizer):
             particle_solutions_local_bests.append(None)
             particle_fitnesses_local_bests.append(None)
 
+        self.solution_counter = {"valid" : 0, "invalid": 0}
+
         # loop until convergence
         while not self.termination_conditions_met():
             # calculate the fitness of each particle
@@ -870,34 +872,42 @@ class ParticleSwarmOptimizer(Optimizer):
                 particle_candidate_solution = {}
 
                 # for all the variables in the solution, compute the velocity and candidate solution component
-                for variable in variables:
+                sample_variables = random.sample(variables, 1)
+                
+                for variable in sample_variables:
                     # get the random uniform weights
                     random_cognitive_weight = random.random()
                     random_social_weight = random.random()
-
+    
                     # get solution component values for the current particle and variable
                     variable_value = particle_solutions[particle][variable]
                     local_best_variable_value = particle_solutions_local_bests[particle][variable]
                     global_best_variable_value = global_best_solution[variable]
-
+    
                     # update the particle velocity
                     inertial_component = inertial_constant * particle_velocities[particle][variable]
                     cognitive_component = cognitive_weight * random_cognitive_weight * (local_best_variable_value - variable_value)
                     social_component = social_weight * random_social_weight * (global_best_variable_value - variable_value)
-
+    
                     particle_velocities[particle][variable] = inertial_component + cognitive_component + social_component
-
+    
                     particle_candidate_solution[variable] = variable_value + particle_velocities[particle][variable]
-
+                
+                other_variables = [variable for variable in variables if variable not in sample_variables]
+                for variable in other_variables:
+                    particle_candidate_solution[variable] = particle_solutions[particle][variable]
+                    
                 # strategy 1: reconstruction
                 # get the closest valid solution
                 particle_next_solution = self.solution_generator.get_closest_valid_solution(particle_candidate_solution)
                 
                 if not particle_next_solution:
-                    logging.debug("using a new valid particle")
-                    particle_next_solution = particle_solutions[particle]
-                else:
                     logging.debug("using the same particle")
+                    particle_next_solution = particle_solutions[particle]
+                    self.solution_counter["invalid"] += 1
+                else:
+                    logging.debug("using the new valid particle")
+                    self.solution_counter["valid"] += 1
 
                 # strategy 2: rejection
                 # if the suggested move is to a valid position, accept it
@@ -916,6 +926,8 @@ class ParticleSwarmOptimizer(Optimizer):
                     parameters = self.solution_generator.get_parameters()
                     self.solution_visualizer.display_solution(parameters, particle_next_solution)
 
+        print len(variables)
+        print self.solution_counter
         return global_best_solution
 
     def evaluate_swarm(self, particle_solutions):
