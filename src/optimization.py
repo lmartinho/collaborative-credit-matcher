@@ -447,9 +447,9 @@ class GeneticAlgorithmOptimizer(Optimizer):
         Optimizer.__init__(self, solution_generator, solution_evaluator, solution_visualizer)
 
         self.initial_population_size = 10
-        self.reproduction_sample_size = 4
+        self.reproduction_sample_size = 5
         self.population_size = 10
-        self.number_replacements = 4
+        self.number_replacements = 5
         self.maximum_trait_value = None
 
         # @todo: set this from the application code
@@ -480,6 +480,7 @@ class GeneticAlgorithmOptimizer(Optimizer):
             fittest_population_evaluated = self.get_fittest(population_evaluated, self.reproduction_sample_size)
 
             self.best_solution, self.best_score = fittest_population_evaluated[-1]
+
             print fittest_population_evaluated[-1][1]
             print fittest_population_evaluated[0][1]
 
@@ -523,7 +524,7 @@ class GeneticAlgorithmOptimizer(Optimizer):
         return population_fitness
 
     def get_fittest(self, population_evaluated, number_fittest):
-        population_evaluated.sort(self.compare_individuals)
+        population_evaluated.sort(key=self.get_fitness)
 
         # return the top number_fittest individuals
         return population_evaluated[-number_fittest:]
@@ -531,7 +532,10 @@ class GeneticAlgorithmOptimizer(Optimizer):
     def breed_generation(self, population_evaluated):
         offspring = []
 
+        # unpack the evaluated population
         population = [individual for individual, score in population_evaluated]
+        
+        random.shuffle(population)
 
         # choose a member of the population, to match lonely individuals
         couple_filler = population[0]
@@ -546,12 +550,15 @@ class GeneticAlgorithmOptimizer(Optimizer):
             individual_b_chromosomes = self.create_chromosomes(individual_b)
 
             # apply crossover operator
-            #child_a_chromosomes, child_b_chromosomes = self.crossover(individual_a_chromosomes, individual_b_chromosomes)
-            child_a_chromosomes, child_b_chromosomes = (individual_a_chromosomes, individual_b_chromosomes)
+            child_a_chromosomes, child_b_chromosomes = self.crossover(individual_a_chromosomes, individual_b_chromosomes)
+            #child_a_chromosomes, child_b_chromosomes = (individual_a_chromosomes, individual_b_chromosomes)
 
             # apply mutation operators
             mutated_child_a_chromosomes = self.mutate(child_a_chromosomes)
             mutated_child_b_chromosomes = self.mutate(child_b_chromosomes)
+            
+#            mutated_child_a_chromosomes = child_a_chromosomes
+#            mutated_child_b_chromosomes = child_b_chromosomes
 
             # convert the genome back to an individual
             child_a = self.create_individual(mutated_child_a_chromosomes)
@@ -599,67 +606,76 @@ class GeneticAlgorithmOptimizer(Optimizer):
     def replace_worst(self, population_evaluated, offspring_evaluated, number_replacements):
         new_population = []
 
-        population_evaluated.sort(self.compare_individuals)
-        offspring_evaluated.sort(self.compare_individuals)
+        population_evaluated.sort(key=self.get_fitness)
+        offspring_evaluated.sort(key=self.get_fitness)
 
         top_offspring = offspring_evaluated[-self.number_replacements:]
         top_population = population_evaluated[-self.number_replacements:]
 
         new_population = top_offspring + top_population
+        new_population.sort(key=self.get_fitness)
 
         return new_population
 
     def create_chromosomes(self, individual):
-        chromosomes_map = {}
+        chromosomes_string = ""
+        self.traits_list = []
 
         for trait in individual:
             trait_value = individual[trait]
             trait_binary_string = self.create_binary_string(trait_value)
-            chromosomes_map[trait] =  trait_binary_string
+            chromosomes_string += trait_binary_string
+            self.traits_list.append(trait)
 
-        return chromosomes_map
+        return chromosomes_string
 
     def crossover(self, individual_a_chromosomes, individual_b_chromosomes):
-        child_a_chromosomes = {}
-        child_b_chromosomes = {}
+        child_a_chromosomes = ""
+        child_b_chromosomes = ""
 
-        for trait in individual_a_chromosomes:
-            individual_a_chromosome = individual_a_chromosomes[trait]
-            individual_b_chromosome = individual_b_chromosomes[trait]
+        # crossover by the half
+        individual_chromosomes_length = len(individual_a_chromosomes)
+        number_chromosomes = individual_chromosomes_length / float(self.maximum_chromosome_length)
+        # the binary notation indexes, position for '0'
+        invalid_indexes = [chromosome_number * self.maximum_chromosome_length for chromosome_number in range(number_chromosomes)]
+        # the binary notation indexes, position for 'b'
+        b_sign_indexes = [index + 1 for index in invalid_indexes] 
+        invalid_indexes.extend(b_sign_indexes)
 
-            # crossover by the half
-            crossover_point = int(len(individual_a_chromosome) / 2)
+        valid_indexes = [x for x in range(individual_chromosomes_length) if x not in invalid_indexes]        
+        crossover_points = random.sample(valid_indexes,2)
+        crossover_points.sort()
+        crossover_point_1, crossover_point_2 = crossover_points
 
-            child_a_chromosome = individual_a_chromosome[0:crossover_point] + individual_b_chromosome[crossover_point:]
-            child_b_chromosome = individual_b_chromosome[0:crossover_point] + individual_a_chromosome[crossover_point:]
+        child_a_chromosomes = individual_a_chromosomes[0:crossover_point_1] + individual_b_chromosomes[crossover_point_1:crossover_point_2] + individual_a_chromosomes[crossover_point_2:] 
+        child_b_chromosomes = individual_b_chromosomes[0:crossover_point_1] + individual_a_chromosomes[crossover_point_1:crossover_point_2] + individual_b_chromosomes[crossover_point_2:]
 
-            child_a_chromosomes[trait] = child_a_chromosome
-            child_b_chromosomes[trait] = child_b_chromosome
-
-        return (child_a_chromosomes, child_a_chromosomes)
+        return (child_a_chromosomes, child_b_chromosomes)
 
     def mutate(self, individual_chromosomes):
         """
         Applies the same mutation criteria to all the chromosomes.
         """
 
-        self.number_traits_mutate = 3
-        # pick a sample of the traits to mutate
-        traits = random.sample(individual_chromosomes, self.number_traits_mutate)
-        # mutate only the picked traits
-        for trait in traits:
-            individual_chromosome = individual_chromosomes[trait]
-            mutated_individual_chromosome = self.mutate_chromosome(individual_chromosome)
-            individual_chromosomes[trait] = mutated_individual_chromosome
+        individual_chromosomes_length = len(individual_chromosomes)
+        number_chromosomes = individual_chromosomes_length / float(self.maximum_chromosome_length)
+        # the binary notation indexes, position for '0'
+        invalid_indexes = [chromosome_number * self.maximum_chromosome_length for chromosome_number in range(number_chromosomes)]
+        # the binary notation indexes, position for 'b'
+        b_sign_indexes = [index + 1 for index in invalid_indexes] 
+        invalid_indexes.extend(b_sign_indexes)
+        
+        valid_indexes = [x for x in range(individual_chromosomes_length) if x not in invalid_indexes]
+        
+        index = random.choice(valid_indexes)
 
-        return individual_chromosomes
+        mutated_individual_chromosomes = self.mutate_chromosome(individual_chromosomes, index)
 
-    def mutate_chromosome(self, chromosome):
+        return mutated_individual_chromosomes
+
+    def mutate_chromosome(self, chromosome, flip_bit_index):
         # extension point for addition mutation techniques
         # just using standard random flip bit for now
-
-        chromosome_length = len(chromosome) - 2
-        flip_bit_index = int(random.random() * chromosome_length + 2)
 
         # because the string is imutable, convert it to a list
         chromosome_list = list(chromosome)
@@ -678,8 +694,15 @@ class GeneticAlgorithmOptimizer(Optimizer):
     def create_individual(self, individual_chromosomes):
         individual = {}
 
-        for trait in individual_chromosomes:
-            trait_value = int(individual_chromosomes[trait], 2)
+        number_traits = len(individual_chromosomes) / self.maximum_chromosome_length
+
+        for trait_number in range(number_traits):
+            trait_index = trait_number * self.maximum_chromosome_length
+
+            trait_chromosome = individual_chromosomes[trait_index:trait_index+self.maximum_chromosome_length]
+            trait_value = int(trait_chromosome, 2)
+
+            trait = self.traits_list[trait_number]
             individual[trait] = trait_value
 
         return individual
@@ -704,7 +727,10 @@ class GeneticAlgorithmOptimizer(Optimizer):
 
         return individual_score
 
-    def compare_individuals(self, individual_a,individual_b):
+    def get_fitness(self, individual_evaluated):
+        return individual_evaluated[FITNESS]
+
+    def compare_individuals(self, individual_a, individual_b):
         individual_a_fitness = individual_a[FITNESS]
         individual_b_fitness = individual_b[FITNESS]
 
