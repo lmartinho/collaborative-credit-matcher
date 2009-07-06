@@ -22,17 +22,19 @@ logging.basicConfig(format=FORMAT, level=LOGGING_LEVEL)
 
 def analyze_metaheuristics():
     # defining experimental setup
-    sampling_points = [1, 5, 10, 20, 50, 100, 1000]
+    #sampling_points = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]
+    sampling_points = range(1000)
+    sampling_points.remove(0)
 
     # Scenario 1: Highly competitive, tight market
     scenario1_parameters = {"mean_lender_amount" : 1000,
                   "lender_amount_standard_deviation" : 100,
-                  "mean_lender_rate" : 0.05,
-                  "lender_rate_standard_deviation" : 0.01,
+                  "mean_lender_rate" : 0.10,
+                  "lender_rate_standard_deviation" : 0.05,
                   "mean_borrower_amount" : 1000,
                   "borrower_amount_standard_deviation" : 100,
-                  "mean_borrower_rate" : 0.20,
-                  "borrower_rate_standard_deviation" : 0.01,
+                  "mean_borrower_rate" : 0.10,
+                  "borrower_rate_standard_deviation" : 0.05,
                   "number_lenders" : 5,
                   "number_borrowers" : 5}
 
@@ -47,13 +49,14 @@ def analyze_metaheuristics():
     parameters = generate_scenario(scenario1_parameters)
 
     experiment_results = {}
-
     number_runs = 1
 
     time_budget = None
-    iterations_budget = 1000
+    iterations_budget = 10
 
     for optimizer_class in optimizer_classes:
+        run_results_list = []
+        optimizer_results = {}
         experiment_results[optimizer_class] = {}
 
         for run in range(number_runs):
@@ -75,10 +78,15 @@ def analyze_metaheuristics():
             score = run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget, iterations_budget)
 
             run_results = optimizer.get_results()
+            run_results_list.append(run_results)
 
         # @todo: calculate the mean score for each sampling point
+        iterations_list = run_results.keys()
+        for number_iterations in iterations_list:
+            results = [run_results[number_iterations] for run_results in run_results_list]
+            optimizer_results[number_iterations] = statlib.stats.mean(results)
 
-        experiment_results[optimizer_class] = run_results
+        experiment_results[optimizer_class] = optimizer_results
 
     #print experiment_results
     export_csv(experiment_results)

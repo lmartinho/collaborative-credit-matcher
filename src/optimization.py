@@ -291,9 +291,9 @@ class SimulatedAnnealingOptimizer(Optimizer):
     def __init__(self, solution_generator, solution_evaluator, solution_visualizer=None):
         Optimizer.__init__(self, solution_generator, solution_evaluator, solution_visualizer)
 
-        self.initial_energy = 100.0
-        self.cooling_alpha = 0.9
-        self.neighborhood_sample_part = 0.05
+        self.initial_energy = 100.0 # [10, 100, 1000]
+        self.cooling_alpha = 0.9 # [0.7, 0.8, 0.9]
+        self.neighborhood_sample_part = 0.05 # [so um, 0.05, 0.10, 0.50]
 
     @timed_optimizer_run
     def optimize(self):
@@ -446,8 +446,8 @@ class GeneticAlgorithmOptimizer(Optimizer):
     def __init__(self, solution_generator, solution_evaluator, solution_visualizer=None):
         Optimizer.__init__(self, solution_generator, solution_evaluator, solution_visualizer)
 
-        self.initial_population_size = 10
-        self.reproduction_sample_size = 5
+        self.initial_population_size = 10 # [5, 10, 20]
+        self.reproduction_sample_size = 5 # [2, 5, 10]
         self.population_size = 10
         self.number_replacements = 5
         self.maximum_trait_value = None
@@ -480,9 +480,6 @@ class GeneticAlgorithmOptimizer(Optimizer):
             fittest_population_evaluated = self.get_fittest(population_evaluated, self.reproduction_sample_size)
 
             self.best_solution, self.best_score = fittest_population_evaluated[-1]
-
-            print fittest_population_evaluated[-1][1]
-            print fittest_population_evaluated[0][1]
 
             # breed new generation through crossover and/or mutation (genetic operations) and give birth to offspring
             logging.debug("breeding next generation")
@@ -805,9 +802,9 @@ class ParticleSwarmOptimizer(Optimizer):
         debug = False
 
         number_particles = 10
-        inertial_constant = 0.95
-        cognitive_weight = 1.5
-        social_weight = 1.5
+        inertial_constant = 0.95  # [0.5, 0.95, 1]
+        cognitive_weight = 1.5 # [1, 1.5, 2]
+        social_weight = 1.5 # [1, 1.5, 2]
 
         particles = range(number_particles)
         variables = self.solution_generator.get_variables()
@@ -926,8 +923,8 @@ class ParticleSwarmOptimizer(Optimizer):
                     parameters = self.solution_generator.get_parameters()
                     self.solution_visualizer.display_solution(parameters, particle_next_solution)
 
-        print len(variables)
-        print self.solution_counter
+#        print len(variables)
+#        print self.solution_counter
         return global_best_solution
 
     def evaluate_swarm(self, particle_solutions):
