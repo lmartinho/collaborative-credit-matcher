@@ -1,7 +1,7 @@
 import time
 import random
 import logging
-import statlib.stats
+import numpy as np
 
 import matcher_optimization
 import optimization
@@ -84,7 +84,7 @@ def analyze_metaheuristics():
         iterations_list = run_results.keys()
         for number_iterations in iterations_list:
             results = [run_results[number_iterations] for run_results in run_results_list]
-            optimizer_results[number_iterations] = statlib.stats.mean(results)
+            optimizer_results[number_iterations] = np.mean(results)
 
         experiment_results[optimizer_class] = optimizer_results
 
@@ -197,7 +197,7 @@ def compare_optimizers():
                     logging.info("Run number %d of optimizer %s" % (run, optimizer))
                     score = run_optimizer(parameters, optimizer, solution_evaluator, solution_visualizer, time_budget, iterations_budget)
                     scores.append(score)
-                mean_score = statlib.stats.mean(scores)
+                mean_score = np.mean(scores)
                 experiment_results[optimizer_class][iterations_budget] = mean_score
 
     #print experiment_results

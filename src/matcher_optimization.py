@@ -1,7 +1,7 @@
 import constraint
 import itertools
 import logging
-import statlib.stats
+import numpy as np
 import time
 
 import matcher_constraint
@@ -387,7 +387,7 @@ class MatcherSolutionEvaluator(object):
 
         member_rate_margins = lender_rates_margins + borrower_rates_margins
 
-        member_rate_margins_standard_deviation = statlib.stats.stdev(member_rate_margins)
+        member_rate_margins_standard_deviation = np.std(member_rate_margins)
 
         # the less the results vary, the tighter is the solution
         tightness = 1 / (1 + member_rate_margins_standard_deviation)

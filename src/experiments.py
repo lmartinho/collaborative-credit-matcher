@@ -1,7 +1,6 @@
 import time
 import random
 import logging
-import statlib.stats
 
 import matcher_optimization
 import optimization
